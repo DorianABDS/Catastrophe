@@ -32,7 +32,7 @@
     const rand = rng || Math.random;
     const mainDeck = shuffle(buildMainDeck(), rand);
     const presageDeck = shuffle(buildPresageDeck(), rand);
-    const cibleDeck = shuffle(buildCibleDeck(), rand);
+    const cibleDeck = shuffle(buildCibleDeck(playerConfigs.length), rand);
     const secretDeck = shuffle(buildSecretDeck(), rand);
 
     const state = {
@@ -86,6 +86,7 @@
           minResistanceEver: 10,
           sabotagedEver: false,
           vautour: null,
+          collectionneurAchieved: false,
         },
       };
       if (cible.kind === 'premiere') state.cibleHolders.premiere = player.id;
@@ -136,11 +137,23 @@
     }
   }
 
+  // Le Collectionneur ne se vérifie plus seulement à l'état final : dès que le trio
+  // Renfort + Provisions + Entraide est réuni en main à un moment de la partie,
+  // l'objectif reste acquis même si ces cartes sont ensuite jouées.
+  function noteCollectionneurProgress(player) {
+    if (player.secret !== 'collectionneur' || player.stats.collectionneurAchieved) return;
+    const has = (kind) => player.hand.some((c) => c.kind === kind);
+    if (has('renfort') && has('provisions') && has('entraide')) {
+      player.stats.collectionneurAchieved = true;
+    }
+  }
+
   function drawOne(state, player) {
     reshuffleIfNeeded(state);
     if (state.mainDeck.length === 0) return null;
     const card = state.mainDeck.pop();
     player.hand.push(card);
+    noteCollectionneurProgress(player);
     return card;
   }
 
@@ -335,6 +348,7 @@
         stolen = resCards[Math.floor(Math.random() * resCards.length)];
         target.hand = target.hand.filter((c) => c.id !== stolen.id);
         actor.hand.push(stolen);
+        noteCollectionneurProgress(actor);
       }
       log(state, `${target.name} ${defenseUsed ? 'bloque les dégâts avec ' + defenseUsed.label : `perd ${dmg} résistance`}${stolen ? ` et se fait voler ${stolen.label}` : ''}.`);
     } else if (card.kind === 'contamination') {
@@ -372,6 +386,7 @@
           const stolen = pool[Math.floor(Math.random() * pool.length)];
           target.hand = target.hand.filter((c) => c.id !== stolen.id);
           actor.hand.push(stolen);
+          noteCollectionneurProgress(actor);
           log(state, `${actor.name} joue Pillage sur ${target.name} et vole ${stolen.label}.`);
         } else {
           log(state, `${actor.name} joue Pillage sur ${target.name} mais rien à voler.`);
@@ -665,10 +680,8 @@
         return !!(player.stats.vautour && player.stats.vautour.achieved.size >= 4);
       case 'bienfaiteur':
         return player.stats.entraideOnOthers >= 3;
-      case 'collectionneur': {
-        const has = (kind) => player.hand.some((c) => c.kind === kind);
-        return has('renfort') && has('provisions') && has('entraide');
-      }
+      case 'collectionneur':
+        return player.stats.collectionneurAchieved;
       case 'resilient':
         return player.stats.minResistanceEver >= 5;
       case 'insaisissable':
