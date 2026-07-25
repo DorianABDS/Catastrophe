@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catastrophe — Prototype</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- Écran de configuration -->
+  <section id="screen-setup" class="screen">
+    <h1>Catastrophe</h1>
+    <p class="subtitle">Jeu de survie — prototype jouable (2 à 8 joueurs, humains ou IA)</p>
+
+    <div class="setup-box">
+      <label>Nombre de joueurs :
+        <select id="player-count">
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4" selected>4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+        </select>
+      </label>
+      <div id="player-config-list"></div>
+      <button id="btn-start-game" class="btn btn-primary">Commencer la partie</button>
+    </div>
+  </section>
+
+  <!-- Écran "Passez l'appareil" -->
+  <section id="screen-gate" class="screen hidden">
+    <div class="gate-box">
+      <h2 id="gate-title">Passez l'appareil à …</h2>
+      <p id="gate-subtitle"></p>
+      <button id="btn-gate-continue" class="btn btn-primary">C'est à moi, continuer</button>
+    </div>
+  </section>
+
+  <!-- Écran de jeu principal -->
+  <section id="screen-game" class="screen hidden">
+    <header id="topbar">
+      <div id="presage-box" class="topbar-item"></div>
+      <div id="counter-box" class="topbar-item"></div>
+    </header>
+
+    <div id="players-strip"></div>
+
+    <main id="game-main">
+      <div id="turn-panel"></div>
+      <div id="log-panel">
+        <h3>Historique</h3>
+        <ul id="log-list"></ul>
+      </div>
+    </main>
+  </section>
+
+  <!-- Écran de fin de partie -->
+  <section id="screen-end" class="screen hidden">
+    <h1>Fin de partie</h1>
+    <div id="end-content"></div>
+  </section>
+
+  <!-- Superposition modale générique -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div id="modal-box" class="modal-box"></div>
+  </div>
+
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
