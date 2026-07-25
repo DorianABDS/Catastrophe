@@ -75,10 +75,13 @@
       }
     }
 
-    // 2. Offensif : viser l'adversaire le plus faible
+    // 2. Offensif : viser l'adversaire le plus faible (égalités départagées au hasard,
+    // sinon le même siège reste systématiquement la cible prioritaire à chaque tour)
     const offCards = hasCategory('Offensif');
     if (offCards.length > 0 && plays < 4 && others.length > 0) {
-      const weakest = others.slice().sort((a, b) => a.resistance - b.resistance)[0];
+      const minResistance = Math.min(...others.map((o) => o.resistance));
+      const weakestPool = others.filter((o) => o.resistance === minResistance);
+      const weakest = pick(weakestPool);
       const chosen = offCards.find((c) => c.kind === 'amputation' && weakest.resistance <= 2)
         || offCards.find((c) => c.kind === 'machette')
         || offCards[0];
@@ -87,11 +90,16 @@
     }
 
     // 3. Sabotage : viser des adversaires différents tant que le budget le permet
+    // (ordre de ciblage mélangé pour ne pas toujours viser le même siège en premier)
     const saboCards = hasCategory('Sabotage');
     const targeted = new Set();
+    const shuffledOthers = others
+      .map((o) => ({ o, r: Math.random() }))
+      .sort((a, b) => a.r - b.r)
+      .map((x) => x.o);
     for (const card of saboCards) {
       if (plays >= 4) break;
-      const target = others.find((o) => !targeted.has(o.id));
+      const target = shuffledOthers.find((o) => !targeted.has(o.id));
       if (!target) break;
       targeted.add(target.id);
       plan.sabotages.push({ cardId: card.id, targetId: target.id });
