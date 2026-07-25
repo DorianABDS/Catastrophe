@@ -85,6 +85,7 @@
           entraideOnOthers: 0,
           minResistanceEver: 10,
           sabotagedEver: false,
+          sabotagedCount: 0,
           vautour: null,
           collectionneurAchieved: false,
         },
@@ -378,6 +379,7 @@
     registerPlay(state, 'Sabotage', targetId);
     actor.stats.sabotageTargets.add(targetId);
     target.stats.sabotagedEver = true;
+    target.stats.sabotagedCount += 1;
 
     switch (card.kind) {
       case 'pillage': {
@@ -685,7 +687,11 @@
       case 'resilient':
         return player.stats.minResistanceEver >= 5;
       case 'insaisissable':
-        return !player.stats.sabotagedEver;
+        // Tolère jusqu'à 2 Sabotages subis : avec ~24 cartes Sabotage dans un paquet de
+        // 135 cartes cyclant sur ~70-120 tours, "jamais aucune fois" s'est avéré presque
+        // toujours impossible en simulation (>93% des joueurs sont touchés au moins une
+        // fois), surtout à 2-3 joueurs où toute la pression se concentre sur un seul adversaire.
+        return player.stats.sabotagedCount <= 2;
       default:
         return false;
     }

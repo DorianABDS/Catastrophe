@@ -268,6 +268,8 @@ h1, h2, h3 { margin-top: 0; }
 }
 .option-item:hover { border-color: var(--accent); }
 .option-item.selected { border-color: var(--accent); background: #2a2016; }
+.option-item.disabled { opacity: 0.35; cursor: not-allowed; }
+.option-item.disabled:hover { border-color: var(--border); }
 
 /* ---------- End screen ---------- */
 

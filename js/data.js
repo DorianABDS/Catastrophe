@@ -41,7 +41,7 @@ const SECRETS = [
   { id: 'bienfaiteur', label: 'Le Bienfaiteur', desc: "Avoir joué Entraide sur un autre joueur au moins 3 fois." },
   { id: 'collectionneur', label: 'Le Collectionneur', desc: 'Avoir eu simultanément 1 Renfort + 1 Provisions + 1 Entraide non joués en main, à un moment de la partie.' },
   { id: 'resilient', label: 'Le Résilient', desc: "N'être jamais descendu en dessous de 5 points de résistance." },
-  { id: 'insaisissable', label: "L'Insaisissable", desc: "N'avoir jamais été touché par une carte Sabotage." },
+  { id: 'insaisissable', label: "L'Insaisissable", desc: "Avoir été touché par une carte Sabotage au plus 2 fois pendant toute la partie." },
 ];
 
 function buildCardId(counterRef, prefix) {

@@ -227,20 +227,24 @@
     const guesser = Engine.getPlayer(STATE, inter.catastropherId);
     const victim = Engine.getPlayer(STATE, inter.victimId);
     if (guesser.isAI) {
-      return { guess: AI.aiVerdictGuess(STATE) };
+      return { guess: AI.aiVerdictGuess(STATE, victim.id, guesser.id) };
     }
     await gate(guesser, `${victim.name} a été éliminé par votre Catastrophe : tentez de deviner son secret.`);
     render();
     return new Promise((resolve) => {
+      const revealed = new Set(STATE.players.filter((p) => p.secretRevealed).map((p) => p.secret));
+      revealed.add(guesser.secret);
       openModal(`
         <h2>Le Verdict</h2>
         <p>${guesser.name}, ${victim.name} a été éliminé. Deviner son secret rapporte +10 points (bonne réponse) ou -10 (mauvaise). Vous pouvez aussi ne rien tenter.</p>
+        <p style="font-size:12px; color: var(--text-dim, #9aa5b3);">Les secrets déjà révélés ou identiques au vôtre sont grisés : ce ne peut pas être celui de ${victim.name} (chaque secret n'existe qu'en un seul exemplaire).</p>
         <div class="option-list">
-          ${SECRETS.map((s) => `<div class="option-item" data-id="${s.id}"><strong>${s.label}</strong><br><small>${s.desc}</small></div>`).join('')}
+          ${SECRETS.map((s) => `<div class="option-item${revealed.has(s.id) ? ' disabled' : ''}" data-id="${s.id}"><strong>${s.label}</strong><br><small>${s.desc}</small></div>`).join('')}
           <div class="option-item" data-id="">Ne rien tenter</div>
         </div>
       `);
       el('modal-box').querySelectorAll('.option-item').forEach((item) => {
+        if (item.classList.contains('disabled')) return;
         item.addEventListener('click', () => {
           const id = item.getAttribute('data-id');
           closeModal();

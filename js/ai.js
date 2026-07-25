@@ -42,11 +42,31 @@
     return order.slice(0, count).map((c) => c.id);
   }
 
-  // Tentative de Verdict : deviner le secret d'une victime
-  function aiVerdictGuess(state) {
-    if (Math.random() < 0.45) {
-      return pick(Data.SECRETS.map((s) => s.id));
-    }
+  // Tentative de Verdict : deviner le secret d'une victime.
+  // Un joueur attentif exclut son propre secret (unique parmi les 9 cartes) et les
+  // secrets déjà révélés publiquement lors de Verdicts précédents — la seule déduction
+  // réellement disponible sans lire dans le jeu d'autrui. Plus le bassin restant est
+  // petit, plus la tentative est rentable (gain +10 / perte -10).
+  function aiVerdictGuess(state, victimId, guesserId) {
+    const guesser = guesserId ? Engine.getPlayer(state, guesserId) : null;
+    const revealed = new Set(state.players.filter((p) => p.secretRevealed).map((p) => p.secret));
+    if (guesser) revealed.add(guesser.secret);
+    const pool = Data.SECRETS.map((s) => s.id).filter((id) => !revealed.has(id));
+    const candidates = pool.length ? pool : Data.SECRETS.map((s) => s.id);
+    // Reste aussi joueur que l'ancien réglage (tentative ~45% en moyenne, pour que
+    // le Verdict continue d'arriver en jeu) mais mieux informé : la probabilité monte
+    // quand le bassin de secrets restants est petit (déduction fiable) et descend
+    // légèrement sinon, au lieu d'un simple tirage à l'aveugle sur les 9 secrets.
+    const n = candidates.length;
+    let attemptChance;
+    if (n <= 1) attemptChance = 0.8;
+    else if (n === 2) attemptChance = 0.65;
+    else if (n === 3) attemptChance = 0.55;
+    else if (n === 4) attemptChance = 0.5;
+    else if (n === 5) attemptChance = 0.45;
+    else if (n === 6) attemptChance = 0.4;
+    else attemptChance = 0.35;
+    if (Math.random() < attemptChance) return pick(candidates);
     return null;
   }
 
@@ -106,11 +126,17 @@
       plays += 1;
     }
 
-    // 4. Colère : si une Catastrophe est en main, forte probabilité de la déclencher
+    // 4. Colère : si une Catastrophe est en main, forte probabilité de la déclencher.
+    // Plus la main se remplit (risque de défausse forcée), plus l'IA se presse de
+    // la jouer — évite qu'une paire Catastrophe+Colère traîne indéfiniment et
+    // retarde la fin de partie (observé en simulation sur de rares parties très longues).
     const catCard = player.hand.find((c) => c.category === 'Catastrophe');
     const colereCard = player.hand.find((c) => c.category === 'Colere');
-    if (catCard && colereCard && Math.random() < 0.7) {
-      plan.colere = { cardId: colereCard.id, catastropheCardId: catCard.id };
+    if (catCard && colereCard) {
+      const urgency = player.hand.length >= 4 ? 0.97 : 0.85;
+      if (Math.random() < urgency) {
+        plan.colere = { cardId: colereCard.id, catastropheCardId: catCard.id };
+      }
     }
 
     return plan;
