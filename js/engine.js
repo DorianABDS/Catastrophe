@@ -242,6 +242,17 @@
     const check = canPlayCategory(state, 'Ressource');
     if (!check.ok) return check;
 
+    if (card.kind === 'entraide') {
+      const targetId = opts && opts.targetId;
+      if (!targetId || targetId === actorId) {
+        return { ok: false, reason: 'Entraide ne peut être jouée que sur un autre joueur.' };
+      }
+      const target = getPlayer(state, targetId);
+      if (!target || target.eliminated) {
+        return { ok: false, reason: 'Cible invalide pour Entraide.' };
+      }
+    }
+
     discardCard(state, player, cardId);
     registerPlay(state, 'Ressource');
 
@@ -255,10 +266,10 @@
         log(state, `${player.name} joue Provisions (+2 résistance).`);
         break;
       case 'entraide': {
-        const targetId = (opts && opts.targetId) || actorId;
+        const targetId = opts.targetId;
         const target = getPlayer(state, targetId);
         changeResistance(state, target, 1);
-        if (targetId !== actorId) player.stats.entraideOnOthers += 1;
+        player.stats.entraideOnOthers += 1;
         log(state, `${player.name} joue Entraide sur ${target.name} (+1 résistance).`);
         break;
       }
@@ -630,8 +641,9 @@
     if (player.hand.length > MAX_HAND) {
       const excess = player.hand.length - MAX_HAND;
       const response = yield { type: 'discardExcess', playerId, hand: player.hand.map((c) => c.id), count: excess };
+      // Le joueur peut défausser plus que le minimum requis s'il le souhaite (jamais moins).
       const ids = (response && response.cardIds) || [];
-      ids.slice(0, excess).forEach((id) => {
+      ids.forEach((id) => {
         const c = discardCard(state, player, id);
         if (c) log(state, `${player.name} défausse ${c.label} (excédent de main).`);
       });

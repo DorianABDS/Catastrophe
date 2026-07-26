@@ -156,6 +156,7 @@ h1, h2, h3 { margin-top: 0; }
 .hp-bar-fill.low { background: var(--bad); }
 .hp-bar-fill.mid { background: var(--warn); }
 .hp-text { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.hand-count { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
 .player-tile .ai-tag { font-size: 11px; color: var(--text-dim); }
 
 /* ---------- Main game area ---------- */
@@ -183,7 +184,14 @@ h1, h2, h3 { margin-top: 0; }
   overflow-y: auto;
 }
 #log-list { list-style: none; padding: 0; margin: 0; font-size: 13px; }
-#log-list li { padding: 4px 0; border-bottom: 1px solid var(--border); color: var(--text-dim); }
+#log-list li { padding: 4px 8px; border-bottom: 1px solid var(--border); color: var(--text-dim); border-radius: 4px; }
+#log-list li.log-current-turn {
+  color: var(--text);
+  background: rgba(224, 112, 58, 0.16);
+  border-bottom-color: transparent;
+  border-left: 3px solid var(--accent);
+  font-weight: 500;
+}
 
 /* ---------- Hand / cards ---------- */
 
@@ -235,6 +243,18 @@ h1, h2, h3 { margin-top: 0; }
 .target-chip.chosen { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .budget-line { font-size: 13px; color: var(--text-dim); margin-bottom: 6px; }
+
+.own-secret-box {
+  background: rgba(224, 112, 58, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--text);
+}
+.own-secret-box strong { color: var(--accent); }
+.own-secret-desc { color: var(--text-dim); font-size: 12px; }
 
 /* ---------- Modal ---------- */
 

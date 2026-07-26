@@ -81,33 +81,33 @@
     const hasCategory = (cat) => player.hand.filter((c) => c.category === cat);
 
     // 1. Ressource : soigner si bas, sinon piocher/valoriser.
-    // Un joueur Le Bienfaiteur cherche activement à jouer Entraide sur un allié
-    // (jamais sur soi) tant que son objectif n'est pas rempli — sans quoi ce secret
-    // n'est jamais atteint par une IA purement égoïste (validé en simulation).
+    // Entraide ne peut plus jamais cibler soi-même (règle) : elle ne sert donc à
+    // rien pour se soigner, seulement pour aider un adversaire. Un joueur Le
+    // Bienfaiteur la recherche activement tant que son objectif n'est pas rempli ;
+    // sinon elle reste un dernier recours si aucune autre Ressource n'est en main.
     if (!player.blockRessourceNextTurn) {
       const resCards = hasCategory('Ressource');
-      if (resCards.length > 0) {
-        let chosen;
-        let opts;
-        const entraideCard = resCards.find((c) => c.kind === 'entraide');
-        if (
-          player.secret === 'bienfaiteur'
-          && entraideCard
-          && player.stats.entraideOnOthers < 3
-          && others.length > 0
-          && (player.resistance > 4 || resCards.length > 1)
-        ) {
-          const weakestOther = others.slice().sort((a, b) => a.resistance - b.resistance)[0];
-          chosen = entraideCard;
-          opts = { targetId: weakestOther.id };
-        } else if (player.resistance <= 5) {
-          chosen = resCards.find((c) => c.kind === 'provisions') || resCards.find((c) => c.kind === 'renfort') || resCards.find((c) => c.kind === 'entraide') || resCards[0];
-          opts = chosen.kind === 'entraide' ? { targetId: player.id } : undefined;
-        } else {
-          chosen = resCards.find((c) => c.kind === 'provisions_urgence') || resCards.find((c) => c.kind === 'ravitaillement') || resCards[0];
-          opts = chosen.kind === 'entraide' ? { targetId: player.id } : undefined;
-        }
-        plan.resource = { cardId: chosen.id, opts };
+      const selfHealCards = resCards.filter((c) => c.kind !== 'entraide');
+      const entraideCard = resCards.find((c) => c.kind === 'entraide');
+      const weakestOther = others.length > 0 ? others.slice().sort((a, b) => a.resistance - b.resistance)[0] : null;
+
+      if (
+        entraideCard && weakestOther
+        && player.secret === 'bienfaiteur'
+        && player.stats.entraideOnOthers < 3
+        && (player.resistance > 4 || selfHealCards.length === 0)
+      ) {
+        plan.resource = { cardId: entraideCard.id, opts: { targetId: weakestOther.id } };
+        plays += 1;
+      } else if (selfHealCards.length > 0) {
+        const chosen = player.resistance <= 5
+          ? (selfHealCards.find((c) => c.kind === 'provisions') || selfHealCards.find((c) => c.kind === 'renfort') || selfHealCards[0])
+          : (selfHealCards.find((c) => c.kind === 'provisions_urgence') || selfHealCards.find((c) => c.kind === 'ravitaillement') || selfHealCards[0]);
+        plan.resource = { cardId: chosen.id };
+        plays += 1;
+      } else if (entraideCard && weakestOther) {
+        // Rien d'autre à jouer que Entraide : autant en faire profiter un adversaire.
+        plan.resource = { cardId: entraideCard.id, opts: { targetId: weakestOther.id } };
         plays += 1;
       }
     }

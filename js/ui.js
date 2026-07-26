@@ -7,7 +7,7 @@
   const CARD_DESC = {
     renfort: '+1 résistance',
     provisions: '+2 résistance',
-    entraide: '+1 résistance à soi ou un autre joueur',
+    entraide: '+1 résistance à un autre joueur (jamais à soi-même)',
     ravitaillement: 'Piocher 2 cartes',
     provisions_urgence: 'Piocher 3 cartes',
     digue: 'Annule les dégâts d\'un Tsunami',
@@ -148,6 +148,7 @@
         </div>
         <div class="hp-bar-track"><div class="hp-bar-fill ${barClass}" style="width:${pct}%"></div></div>
         <div class="hp-text">${p.resistance} / ${p.maxResistance} résistance${p.eliminated ? ' — éliminé' : ''}</div>
+        <div class="hand-count">🂠 ${p.hand.length} carte${p.hand.length > 1 ? 's' : ''} en main</div>
       `;
       strip.appendChild(tile);
     });
@@ -159,6 +160,7 @@
     STATE.log.slice(-40).reverse().forEach((entry) => {
       const li = document.createElement('li');
       li.textContent = `[T${entry.turn}] ${entry.message}`;
+      if (entry.turn === STATE.turnNumber) li.classList.add('log-current-turn');
       list.appendChild(li);
     });
   }
@@ -259,23 +261,23 @@
     if (player.isAI) {
       return { cardIds: AI.aiChooseExcessDiscard(player, inter.count) };
     }
-    await gate(player, `Votre main dépasse 5 cartes : défaussez ${inter.count} carte(s).`);
+    await gate(player, `Votre main dépasse 5 cartes : défaussez au moins ${inter.count} carte(s).`);
     render();
     return new Promise((resolve) => {
       const selected = new Set();
       const renderModal = () => {
         openModal(`
           <h2>Défausse d'excédent</h2>
-          <p>Choisissez ${inter.count} carte(s) à défausser (${selected.size}/${inter.count}).</p>
+          <p>Choisissez au moins ${inter.count} carte(s) à défausser (${selected.size}/${player.hand.length} sélectionnée(s)). Vous pouvez en défausser plus si vous le souhaitez.</p>
           <div class="hand-row">${player.hand.map((c) => cardHtml(c)).join('')}</div>
-          <button id="btn-confirm-discard" class="btn btn-primary" ${selected.size === inter.count ? '' : 'disabled'}>Confirmer</button>
+          <button id="btn-confirm-discard" class="btn btn-primary" ${selected.size >= inter.count ? '' : 'disabled'}>Confirmer</button>
         `);
         el('modal-box').querySelectorAll('.card').forEach((cardEl) => {
           const id = cardEl.getAttribute('data-card-id');
           if (selected.has(id)) cardEl.style.outline = '3px solid var(--accent)';
           cardEl.addEventListener('click', () => {
             if (selected.has(id)) selected.delete(id);
-            else if (selected.size < inter.count) selected.add(id);
+            else selected.add(id);
             renderModal();
           });
         });
@@ -342,6 +344,12 @@
         title.textContent = `Tour de ${player.name}`;
         panel.appendChild(title);
 
+        const secretBox = document.createElement('div');
+        secretBox.className = 'own-secret-box';
+        const secretInfo = CatastropheData.SECRETS.find((s) => s.id === player.secret);
+        secretBox.innerHTML = `Votre secret : <strong>${secretInfo.label}</strong><br><span class="own-secret-desc">${secretInfo.desc}</span>`;
+        panel.appendChild(secretBox);
+
         if (pendingTargetCard) {
           renderTargetPicker();
           return;
@@ -399,6 +407,9 @@
         if (card.category === 'Ressource' && player.blockRessourceNextTurn) {
           return { ok: false, reason: 'Sécheresse : Ressource interdite ce tour.' };
         }
+        if (card.category === 'Ressource' && card.kind === 'entraide' && Engine.activePlayers(STATE).filter((p) => p.id !== player.id).length === 0) {
+          return { ok: false, reason: 'Aucun autre joueur actif à qui venir en aide.' };
+        }
         return Engine.canPlayCategory(STATE, card.category);
       }
 
@@ -431,13 +442,11 @@
 
         const row = document.createElement('div');
         row.className = 'target-row';
-        const candidates = card.kind === 'entraide'
-          ? STATE.players.filter((p) => !p.eliminated)
-          : Engine.activePlayers(STATE).filter((p) => p.id !== player.id);
+        const candidates = Engine.activePlayers(STATE).filter((p) => p.id !== player.id);
         candidates.forEach((p) => {
           const chip = document.createElement('div');
           chip.className = 'target-chip';
-          chip.textContent = p.id === player.id ? `${p.name} (soi-même)` : p.name;
+          chip.textContent = p.name;
           chip.addEventListener('click', async () => {
             pendingTargetCard = null;
             await onTargetChosen(card, p.id);
