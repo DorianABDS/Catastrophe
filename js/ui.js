@@ -164,11 +164,20 @@
     });
   }
 
+  // Compte les exemplaires de chaque sorte de carte dans une liste (pour le badge de doublon)
+  function countByKind(cards) {
+    const counts = {};
+    cards.forEach((c) => { counts[c.kind] = (counts[c.kind] || 0) + 1; });
+    return counts;
+  }
+
   function cardHtml(card, extra) {
+    const count = extra && extra.count;
+    const dupBadge = count > 1 ? `<span class="dup-badge">×${count}</span>` : '';
     return `
       <div class="card cat-${card.category} ${extra && extra.disabled ? 'disabled' : ''}" data-card-id="${card.id}">
         <div class="cat-tag">${card.category}</div>
-        <div class="card-label">${card.label}</div>
+        <div class="card-label">${card.label} ${dupBadge}</div>
         <div class="card-desc">${CARD_DESC[card.kind] || ''}</div>
       </div>
     `;
@@ -205,12 +214,13 @@
     render();
     return new Promise((resolve) => {
       const cards = inter.options.map((id) => player.hand.find((c) => c.id === id));
+      const cardCounts = countByKind(cards);
       const kindLabel = inter.context.kind === 'catastrophe' ? CatastropheData.CATASTROPHE_LABELS[inter.context.catastropheKind] : inter.context.offensifKind;
       openModal(`
         <h2>Réaction défensive</h2>
         <p>${player.name}, vous êtes touché par : <strong>${kindLabel}</strong>. Jouer une carte Défensif ?</p>
         <div class="option-list">
-          ${cards.map((c) => `<div class="option-item" data-id="${c.id}"><strong>${c.label}</strong><br><small>${CARD_DESC[c.kind]}</small></div>`).join('')}
+          ${cards.map((c) => `<div class="option-item" data-id="${c.id}"><strong>${c.label}</strong>${cardCounts[c.kind] > 1 ? ` <span class="dup-badge">×${cardCounts[c.kind]}</span>` : ''}<br><small>${CARD_DESC[c.kind]}</small></div>`).join('')}
           <div class="option-item" data-id="">Ne pas se défendre</div>
         </div>
       `);
@@ -268,7 +278,7 @@
         openModal(`
           <h2>Défausse d'excédent</h2>
           <p>Choisissez au moins ${inter.count} carte(s) à défausser (${selected.size}/${player.hand.length} sélectionnée(s)). Vous pouvez en défausser plus si vous le souhaitez.</p>
-          <div class="hand-row">${player.hand.map((c) => cardHtml(c)).join('')}</div>
+          <div class="hand-row">${(() => { const counts = countByKind(player.hand); return player.hand.map((c) => cardHtml(c, { count: counts[c.kind] })).join(''); })()}</div>
           <button id="btn-confirm-discard" class="btn btn-primary" ${selected.size >= inter.count ? '' : 'disabled'}>Confirmer</button>
         `);
         el('modal-box').querySelectorAll('.card').forEach((cardEl) => {
@@ -302,7 +312,7 @@
       openModal(`
         <h2>Défausse forcée (Panique)</h2>
         <p>${target.name}, choisissez la carte à défausser.</p>
-        <div class="hand-row">${target.hand.map((c) => cardHtml(c)).join('')}</div>
+        <div class="hand-row">${(() => { const counts = countByKind(target.hand); return target.hand.map((c) => cardHtml(c, { count: counts[c.kind] })).join(''); })()}</div>
       `);
       el('modal-box').querySelectorAll('.card').forEach((cardEl) => {
         cardEl.addEventListener('click', () => {
@@ -326,7 +336,7 @@
       openModal(`
         <h2>Détournement</h2>
         <p>${actor.name}, choisissez la carte à voler dans la main de ${target.name}.</p>
-        <div class="hand-row">${target.hand.map((c) => cardHtml(c)).join('')}</div>
+        <div class="hand-row">${(() => { const counts = countByKind(target.hand); return target.hand.map((c) => cardHtml(c, { count: counts[c.kind] })).join(''); })()}</div>
       `);
       el('modal-box').querySelectorAll('.card').forEach((cardEl) => {
         cardEl.addEventListener('click', () => {
@@ -385,10 +395,11 @@
 
         const handRow = document.createElement('div');
         handRow.className = 'hand-row';
+        const handKindCounts = countByKind(player.hand);
         player.hand.forEach((card) => {
           const playable = isPlayableNow(card);
           const wrapper = document.createElement('div');
-          wrapper.innerHTML = cardHtml(card, { disabled: !playable.ok });
+          wrapper.innerHTML = cardHtml(card, { disabled: !playable.ok, count: handKindCounts[card.kind] });
           const cardEl = wrapper.firstElementChild;
           if (playable.ok) {
             cardEl.title = 'Jouer cette carte';

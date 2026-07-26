@@ -220,6 +220,17 @@ h1, h2, h3 { margin-top: 0; }
 .card.disabled:hover { transform: none; }
 .card .cat-tag { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); }
 .card .card-label { font-weight: 600; margin: 4px 0; }
+.dup-badge {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  vertical-align: middle;
+}
+.option-item .dup-badge { margin-left: 4px; }
 .card .card-desc { font-size: 11px; color: var(--text-dim); }
 
 .card.cat-Ressource { border-left: 4px solid #4caf50; }
