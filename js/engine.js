@@ -64,8 +64,8 @@
         id: 'p' + idx,
         name: cfg.name,
         isAI: !!cfg.isAI,
-        resistance: 10,
-        maxResistance: 10,
+        pv: 10,
+        maxPv: 10,
         hand: [],
         cible: cible.kind,
         secret: secret.kind,
@@ -74,8 +74,6 @@
         eliminated: false,
         eliminatedTurn: null,
         bonusScore: 0,
-        lockedCatastropheCardId: null,
-        forcedNextTurn: false,
         skipNextDraw: false,
         blockDefensifThisTurn: false,
         blockRessourceNextTurn: false,
@@ -83,7 +81,7 @@
           catastrophesPlayed: 0,
           sabotageTargets: new Set(),
           entraideOnOthers: 0,
-          minResistanceEver: 10,
+          minPvEver: 10,
           sabotagedEver: false,
           sabotagedCount: 0,
           vautour: null,
@@ -172,24 +170,23 @@
     if (idx === -1) return null;
     const [card] = player.hand.splice(idx, 1);
     state.discardPile.push(card);
-    if (player.lockedCatastropheCardId === cardId) player.lockedCatastropheCardId = null;
     return card;
   }
 
-  function updateMinResistance(player) {
-    if (player.resistance < player.stats.minResistanceEver) {
-      player.stats.minResistanceEver = player.resistance;
+  function updateMinPv(player) {
+    if (player.pv < player.stats.minPvEver) {
+      player.stats.minPvEver = player.pv;
     }
   }
 
-  function changeResistance(state, player, delta) {
-    player.resistance = Math.max(0, Math.min(player.maxResistance, player.resistance + delta));
-    updateMinResistance(player);
+  function changePv(state, player, delta) {
+    player.pv = Math.max(0, Math.min(player.maxPv, player.pv + delta));
+    updateMinPv(player);
     checkElimination(state, player);
   }
 
   function checkElimination(state, player) {
-    if (!player.eliminated && player.resistance <= 0) {
+    if (!player.eliminated && player.pv <= 0) {
       player.eliminated = true;
       player.eliminatedTurn = state.turnNumber;
       log(state, `${player.name} est éliminé !`);
@@ -203,13 +200,16 @@
       usedTypes: new Set(),
       sabotageTargets: new Set(),
       totalPlays: 0,
-      colerePlayed: false,
+      catastrophePlayed: false,
     };
   }
 
   function canPlayCategory(state, category, targetId) {
     const b = state.turnBudget;
     if (b.totalPlays >= TURN_BUDGET) return { ok: false, reason: 'Budget de 4 cartes atteint ce tour.' };
+    if ((category === 'Sabotage' || category === 'Offensif') && b.catastrophePlayed) {
+      return { ok: false, reason: 'Une Catastrophe a été jouée ce tour-ci : Sabotage et Offensif sont indisponibles jusqu\'au tour suivant.' };
+    }
     if (category === 'Sabotage') {
       if (targetId && b.sabotageTargets.has(targetId)) {
         return { ok: false, reason: 'Cet adversaire a déjà été visé par un Sabotage ce tour-ci.' };
@@ -258,19 +258,19 @@
 
     switch (card.kind) {
       case 'renfort':
-        changeResistance(state, player, 1);
-        log(state, `${player.name} joue Renfort (+1 résistance).`);
+        changePv(state, player, 1);
+        log(state, `${player.name} joue Renfort (+1 PV).`);
         break;
       case 'provisions':
-        changeResistance(state, player, 2);
-        log(state, `${player.name} joue Provisions (+2 résistance).`);
+        changePv(state, player, 2);
+        log(state, `${player.name} joue Provisions (+2 PV).`);
         break;
       case 'entraide': {
         const targetId = opts.targetId;
         const target = getPlayer(state, targetId);
-        changeResistance(state, target, 1);
+        changePv(state, target, 1);
         player.stats.entraideOnOthers += 1;
-        log(state, `${player.name} joue Entraide sur ${target.name} (+1 résistance).`);
+        log(state, `${player.name} joue Entraide sur ${target.name} (+1 PV).`);
         break;
       }
       case 'ravitaillement':
@@ -326,7 +326,6 @@
     const target = getPlayer(state, targetId);
     const card = actor.hand.find((c) => c.id === cardId);
     if (!card || card.category !== 'Offensif') { yield { type: 'log', message: 'Carte invalide.' }; return; }
-    if (target.lockedCatastropheCardId && targetId === actorId) return; // no-op garde
     const check = canPlayCategory(state, 'Offensif');
     if (!check.ok) { yield { type: 'log', message: check.reason }; return; }
 
@@ -339,8 +338,8 @@
         if (p.id === actorId) continue;
         const { defenseUsed } = yield* reactToDamage(state, p.id, { kind: 'offensif', offensifKind: 'rechauffement' });
         const dmg = defenseUsed ? 0 : 1;
-        changeResistance(state, p, -dmg);
-        log(state, `${p.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : `perd ${dmg} résistance`} (Réchauffement).`);
+        changePv(state, p, -dmg);
+        log(state, `${p.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : `perd ${dmg} PV`} (Réchauffement).`);
       }
       return;
     }
@@ -349,11 +348,11 @@
 
     if (card.kind === 'machette') {
       const dmg = defenseUsed ? 0 : 1;
-      changeResistance(state, target, -dmg);
-      log(state, `${target.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : `perd ${dmg} résistance`}.`);
+      changePv(state, target, -dmg);
+      log(state, `${target.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : `perd ${dmg} PV`}.`);
     } else if (card.kind === 'pioche_secours') {
       const dmg = defenseUsed ? 0 : 1;
-      changeResistance(state, target, -dmg);
+      changePv(state, target, -dmg);
       const resCards = target.hand.filter((c) => c.category === 'Ressource');
       let stolen = null;
       if (resCards.length > 0) {
@@ -362,16 +361,16 @@
         actor.hand.push(stolen);
         noteCollectionneurProgress(actor);
       }
-      log(state, `${target.name} ${defenseUsed ? 'bloque les dégâts avec ' + defenseUsed.label : `perd ${dmg} résistance`}${stolen ? ` et se fait voler ${stolen.label}` : ''}.`);
+      log(state, `${target.name} ${defenseUsed ? 'bloque les dégâts avec ' + defenseUsed.label : `perd ${dmg} PV`}${stolen ? ` et se fait voler ${stolen.label}` : ''}.`);
     } else if (card.kind === 'contamination') {
       const stolen = defenseUsed ? 0 : 1;
       if (stolen > 0) {
-        changeResistance(state, target, -stolen);
-        changeResistance(state, actor, stolen);
+        changePv(state, target, -stolen);
+        changePv(state, actor, stolen);
       }
-      log(state, `${target.name} ${defenseUsed ? 'bloque la Contamination' : `perd 1 résistance, volée par ${actor.name}`}.`);
+      log(state, `${target.name} ${defenseUsed ? 'bloque la Contamination' : `perd 1 PV, volé par ${actor.name}`}.`);
     } else if (card.kind === 'amputation') {
-      changeResistance(state, target, -2);
+      changePv(state, target, -2);
       log(state, `${target.name} subit 2 dégâts d'Amputation (non bloquables).`);
     }
   }
@@ -394,9 +393,8 @@
 
     switch (card.kind) {
       case 'pillage': {
-        const pool = target.hand.filter((c) => c.id !== target.lockedCatastropheCardId);
-        if (pool.length > 0) {
-          const stolen = pool[Math.floor(Math.random() * pool.length)];
+        if (target.hand.length > 0) {
+          const stolen = target.hand[Math.floor(Math.random() * target.hand.length)];
           target.hand = target.hand.filter((c) => c.id !== stolen.id);
           actor.hand.push(stolen);
           noteCollectionneurProgress(actor);
@@ -411,40 +409,53 @@
         log(state, `${actor.name} joue Coupure : ${target.name} ne pioche pas au prochain tour.`);
         break;
       case 'panique':
-      case 'detournement':
         return { ok: true, needsDiscardChoice: true, card, actor, target };
+      case 'detournement':
+        return { ok: true, needsStealChoice: true, card, actor, target };
       default:
         break;
     }
     return { ok: true };
   }
 
+  // Panique : la cible choisit elle-même une carte de sa main et la défausse (disparaît du jeu).
   function resolveForcedDiscard(state, targetId, cardId) {
     const target = getPlayer(state, targetId);
     const discarded = discardCard(state, target, cardId);
-    if (discarded) log(state, `${target.name} défausse ${discarded.label} (forcé).`);
+    if (discarded) log(state, `${target.name} défausse ${discarded.label} (Panique).`);
     return discarded;
   }
 
-  // ---------- Colère ----------
-
-  function playColereCard(state, actorId, cardId, catastropheCardId) {
+  // Détournement : l'acteur choisit lui-même une carte dans la main de la cible et la vole
+  // (elle rejoint sa propre main, elle n'est pas défaussée).
+  function resolveDetournementSteal(state, actorId, targetId, cardId) {
     const actor = getPlayer(state, actorId);
-    const card = actor.hand.find((c) => c.id === cardId);
-    if (!card || card.category !== 'Colere') return { ok: false, reason: 'Carte invalide.' };
-    const catCard = actor.hand.find((c) => c.id === catastropheCardId && c.category === 'Catastrophe');
-    if (!catCard) return { ok: false, reason: 'Aucune carte Catastrophe en main.' };
-    if (state.turnBudget.colerePlayed) return { ok: false, reason: 'Colère déjà jouée ce tour.' };
-
-    discardCard(state, actor, cardId);
-    state.turnBudget.colerePlayed = true;
-    actor.lockedCatastropheCardId = catastropheCardId;
-    actor.forcedNextTurn = true;
-    log(state, `${actor.name} joue Colère : verrouille ${catCard.label}, jouera cette Catastrophe au tour suivant.`);
-    return { ok: true };
+    const target = getPlayer(state, targetId);
+    const idx = target.hand.findIndex((c) => c.id === cardId);
+    if (idx === -1) return null;
+    const [card] = target.hand.splice(idx, 1);
+    actor.hand.push(card);
+    noteCollectionneurProgress(actor);
+    log(state, `${actor.name} vole ${card.label} à ${target.name} (Détournement).`);
+    return card;
   }
 
   // ---------- Résolution d'une Catastrophe (générateur) ----------
+
+  // Une Catastrophe se joue directement pendant le tour normal d'un joueur (plus de
+  // verrouillage préalable). Elle consomme le "slot" Catastrophe du budget de tour et
+  // interdit Sabotage/Offensif pour le reste de ce tour (Ressource reste autorisée).
+  function* playCatastropheCard(state, actorId, cardId) {
+    const actor = getPlayer(state, actorId);
+    const card = actor.hand.find((c) => c.id === cardId);
+    if (!card || card.category !== 'Catastrophe') { yield { type: 'log', message: 'Carte Catastrophe invalide.' }; return; }
+    const check = canPlayCategory(state, 'Catastrophe');
+    if (!check.ok) { yield { type: 'log', message: check.reason }; return; }
+
+    registerPlay(state, 'Catastrophe');
+    state.turnBudget.catastrophePlayed = true;
+    yield* resolveCatastrophe(state, actorId, cardId);
+  }
 
   function* resolveCatastrophe(state, actorId, catastropheCardId) {
     const actor = getPlayer(state, actorId);
@@ -453,7 +464,6 @@
 
     discardCard(state, actor, catastropheCardId);
     actor.stats.catastrophesPlayed += 1;
-    actor.lockedCatastropheCardId = null;
 
     const kind = card.kind;
     const isForce = kind === state.presage.force;
@@ -488,10 +498,10 @@
         finalDamage = baseDamage;
       }
 
-      changeResistance(state, victim, -finalDamage);
-      if (bonus > 0) changeResistance(state, victim, bonus);
+      changePv(state, victim, -finalDamage);
+      if (bonus > 0) changePv(state, victim, bonus);
 
-      log(state, `${victim.name} ${defenseUsed ? `se défend avec ${defenseUsed.label} — ` : ''}subit ${finalDamage} dégât(s)${bonus ? ` et regagne ${bonus}` : ''}.`);
+      log(state, `${victim.name} ${defenseUsed ? `se défend avec ${defenseUsed.label} — ` : ''}subit ${finalDamage} dégât(s)${bonus ? ` et regagne ${bonus} PV` : ''}.`);
 
       if (!fullyCancelled) {
         applyArchetype(state, victim, archetype);
@@ -557,19 +567,19 @@
         applied = true;
         break;
       case 'cicatrice':
-        victim.maxResistance = Math.max(0, victim.maxResistance - 1);
-        victim.resistance = Math.min(victim.resistance, victim.maxResistance);
-        updateMinResistance(victim);
+        victim.maxPv = Math.max(0, victim.maxPv - 1);
+        victim.pv = Math.min(victim.pv, victim.maxPv);
+        updateMinPv(victim);
         checkElimination(state, victim);
-        log(state, `${victim.name} subit une cicatrice permanente : résistance max = ${victim.maxResistance} (Volcan).`);
+        log(state, `${victim.name} subit une cicatrice permanente : PV max = ${victim.maxPv} (Volcan).`);
         applied = true;
         break;
       default:
         break;
     }
     if (!applied) {
-      changeResistance(state, victim, -1);
-      log(state, `${victim.name} ne peut pas subir l'archétype secondaire : -1 résistance supplémentaire.`);
+      changePv(state, victim, -1);
+      log(state, `${victim.name} ne peut pas subir l'archétype secondaire : -1 PV supplémentaire.`);
     } else {
       registerArchetypeEvent(state, victim.id, archetype);
     }
@@ -605,31 +615,11 @@
     });
   }
 
-  // ---------- Tour normal / forcé (générateurs) ----------
-
-  function isForcedTurn(player) {
-    return !!player.forcedNextTurn;
-  }
-
-  function* forcedTurn(state, playerId) {
-    const player = getPlayer(state, playerId);
-    const catId = player.lockedCatastropheCardId;
-    player.forcedNextTurn = false;
-    player.blockRessourceNextTurn = false;
-    if (!catId || !player.hand.find((c) => c.id === catId)) {
-      yield { type: 'log', message: `${player.name} n'a plus la Catastrophe verrouillée (anomalie), tour normal.` };
-      return { forced: false };
-    }
-    yield { type: 'log', message: `${player.name} doit jouer sa Catastrophe verrouillée : tour spécial.` };
-    yield* resolveCatastrophe(state, playerId, catId);
-    handleVautourFallback(state);
-    drawN(state, player, 1);
-    yield { type: 'log', message: `${player.name} pioche 1 carte (compensation tour spécial).` };
-    return { forced: true };
-  }
+  // ---------- Fin de tour (générateur) ----------
 
   function* normalEndOfTurn(state, playerId) {
     const player = getPlayer(state, playerId);
+    handleVautourFallback(state);
     if (player.skipNextDraw) {
       player.skipNextDraw = false;
       yield { type: 'log', message: `${player.name} ne pioche pas (Coupure).` };
@@ -666,9 +656,6 @@
     state.turnNumber += 1;
     const player = getPlayer(state, state.players[state.currentPlayerIndex].id);
     player.blockDefensifThisTurn = false;
-    if (player.blockRessourceNextTurn) {
-      // consumed at the start of the turn it applies to; handled via canPlay check using this flag then cleared at end of that turn
-    }
     resetTurnBudget(state);
   }
 
@@ -685,7 +672,7 @@
       case 'survivant':
         return !player.eliminated;
       case 'bastion':
-        return !player.eliminated && state.players.every((o) => o.id === player.id || player.resistance > o.resistance);
+        return !player.eliminated && state.players.every((o) => o.id === player.id || player.pv > o.pv);
       case 'semeur':
         return player.stats.catastrophesPlayed >= 3;
       case 'traqueur':
@@ -697,12 +684,12 @@
       case 'collectionneur':
         return player.stats.collectionneurAchieved;
       case 'resilient':
-        return player.stats.minResistanceEver >= 5;
+        return player.stats.minPvEver >= 5;
       case 'insaisissable':
-        // Tolère jusqu'à 2 Sabotages subis : avec ~24 cartes Sabotage dans un paquet de
-        // 135 cartes cyclant sur ~70-120 tours, "jamais aucune fois" s'est avéré presque
-        // toujours impossible en simulation (>93% des joueurs sont touchés au moins une
-        // fois), surtout à 2-3 joueurs où toute la pression se concentre sur un seul adversaire.
+        // Tolère jusqu'à 2 Sabotages subis : avec un paquet Sabotage conséquent cyclant
+        // sur ~70-120 tours, "jamais aucune fois" s'est avéré presque toujours impossible
+        // en simulation, surtout à 2-3 joueurs où toute la pression se concentre sur un
+        // seul adversaire.
         return player.stats.sabotagedCount <= 2;
       default:
         return false;
@@ -712,16 +699,16 @@
   function computeFinalScores(state) {
     return state.players.map((player) => {
       const aliveBonus = player.eliminated ? 0 : 5;
-      const resistanceBonus = player.eliminated ? 0 : player.resistance;
+      const pvBonus = player.eliminated ? 0 : player.pv;
       const secretDone = !player.secretCancelled && evaluateSecret(state, player);
       const secretBonus = secretDone ? 5 : 0;
       const resourceCards = player.hand.filter((c) => c.category === 'Ressource').length;
-      const total = aliveBonus + resistanceBonus + secretBonus + resourceCards + player.bonusScore;
+      const total = aliveBonus + pvBonus + secretBonus + resourceCards + player.bonusScore;
       return {
         playerId: player.id,
         name: player.name,
         aliveBonus,
-        resistanceBonus,
+        pvBonus,
         secretBonus,
         secretDone,
         resourceCards,
@@ -735,8 +722,8 @@
     MAX_END_COUNTER, MAX_HAND, TURN_BUDGET,
     initGame, activePlayers, getPlayer, cibleLabel, secretLabel,
     canPlayCategory, playResourceCard, playOffensiveCard, playSabotageCard,
-    resolveForcedDiscard, playColereCard, resolveCatastrophe, usableDefenseCards,
-    isForcedTurn, forcedTurn, normalEndOfTurn, advanceToNextPlayer,
+    resolveForcedDiscard, resolveDetournementSteal, playCatastropheCard, usableDefenseCards,
+    normalEndOfTurn, advanceToNextPlayer,
     evaluateSecret, computeFinalScores, endGame, log, drawOne, drawN,
   };
 

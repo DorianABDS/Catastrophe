@@ -17,18 +17,26 @@
     return null;
   }
 
-  // Choisit une carte à défausser suite à Panique/Détournement
+  // Choisit une carte à défausser suite à Panique
   // (le Défensif ne sert qu'en réaction : les doublons excédentaires sont les moins utiles à garder)
   function aiChooseDiscard(player, reason) {
-    const priority = ['Defensif', 'Offensif', 'Sabotage', 'Ressource', 'Colere', 'Catastrophe'];
+    const priority = ['Defensif', 'Offensif', 'Sabotage', 'Ressource', 'Catastrophe'];
     const sorted = player.hand.slice().sort((a, b) => priority.indexOf(a.category) - priority.indexOf(b.category));
     return sorted.length ? sorted[0].id : null;
   }
 
+  // Choisit quelle carte voler dans la main de la cible pour Détournement
+  // (priorité aux cartes les plus utiles à récupérer / à retirer à l'adversaire)
+  function aiChooseSteal(target) {
+    const priority = ['Catastrophe', 'Ressource', 'Offensif', 'Sabotage', 'Defensif'];
+    const sorted = target.hand.slice().sort((a, b) => priority.indexOf(a.category) - priority.indexOf(b.category));
+    return sorted.length ? sorted[0].id : null;
+  }
+
   // Choisit les cartes à défausser en excédent de main (fin de tour)
-  // Colère/Catastrophe sont protégées en priorité (elles font avancer la partie),
-  // puis Ressource (utile pour soigner et pour le score final), puis Sabotage/Offensif,
-  // le Défensif au-delà de 2 exemplaires est le moins utile à conserver.
+  // Catastrophe est protégée en priorité (elle fait avancer la partie), puis Ressource
+  // (utile pour soigner et pour le score final), puis Sabotage/Offensif, le Défensif
+  // au-delà de 2 exemplaires est le moins utile à conserver.
   function aiChooseExcessDiscard(player, count) {
     const defensif = player.hand.filter((c) => c.category === 'Defensif');
     const excessDefensif = defensif.slice(Math.min(2, defensif.length));
@@ -36,9 +44,8 @@
     const sabotage = player.hand.filter((c) => c.category === 'Sabotage');
     const ressource = player.hand.filter((c) => c.category === 'Ressource');
     const keptDefensif = defensif.slice(0, Math.min(2, defensif.length));
-    const colere = player.hand.filter((c) => c.category === 'Colere');
     const catastrophe = player.hand.filter((c) => c.category === 'Catastrophe');
-    const order = [...excessDefensif, ...offensif, ...sabotage, ...ressource, ...keptDefensif, ...colere, ...catastrophe];
+    const order = [...excessDefensif, ...offensif, ...sabotage, ...ressource, ...keptDefensif, ...catastrophe];
     return order.slice(0, count).map((c) => c.id);
   }
 
@@ -46,7 +53,7 @@
   // Un joueur attentif exclut son propre secret (unique parmi les 9 cartes) et les
   // secrets déjà révélés publiquement lors de Verdicts précédents — la seule déduction
   // réellement disponible sans lire dans le jeu d'autrui. Plus le bassin restant est
-  // petit, plus la tentative est rentable (gain +10 / perte -10).
+  // petit, plus la tentative est rentable (gain +10 / perte -5).
   function aiVerdictGuess(state, victimId, guesserId) {
     const guesser = guesserId ? Engine.getPlayer(state, guesserId) : null;
     const revealed = new Set(state.players.filter((p) => p.secretRevealed).map((p) => p.secret));
@@ -72,35 +79,49 @@
   }
 
   // Construit la liste des actions jouées par l'IA pour un tour normal.
-  // Retourne un plan : {resource:{cardId,opts}|null, offensive:{cardId,targetId}|null, sabotages:[{cardId,targetId}], colere:{cardId,catastropheCardId}|null}
+  // Retourne un plan : {resource, offensive, sabotages, catastrophe}
   function aiPlanTurn(state, player) {
     const others = Engine.activePlayers(state).filter((p) => p.id !== player.id);
-    const plan = { resource: null, offensive: null, sabotages: [], colere: null };
+    const plan = { resource: null, offensive: null, sabotages: [], catastrophe: null };
     let plays = 0;
 
     const hasCategory = (cat) => player.hand.filter((c) => c.category === cat);
 
-    // 1. Ressource : soigner si bas, sinon piocher/valoriser.
-    // Entraide ne peut plus jamais cibler soi-même (règle) : elle ne sert donc à
-    // rien pour se soigner, seulement pour aider un adversaire. Un joueur Le
-    // Bienfaiteur la recherche activement tant que son objectif n'est pas rempli ;
-    // sinon elle reste un dernier recours si aucune autre Ressource n'est en main.
+    // 0. Catastrophe : décision précoce, car la jouer verrouille Sabotage et Offensif
+    // pour le reste du tour (seule Ressource reste autorisée en plus). Préférence pour
+    // la catastrophe désignée Force par le Présage (dégâts maximaux aux adversaires).
+    const catCards = hasCategory('Catastrophe');
+    let catastrophePlayed = false;
+    if (catCards.length > 0) {
+      const urgency = player.hand.length >= 4 ? 0.9 : 0.6;
+      if (Math.random() < urgency) {
+        const chosen = catCards.find((c) => c.kind === state.presage.force) || pick(catCards);
+        plan.catastrophe = { cardId: chosen.id };
+        catastrophePlayed = true;
+      }
+    }
+
+    // 1. Ressource : soigner si bas, sinon piocher/valoriser (reste autorisée même si
+    // une Catastrophe est jouée ce tour). Entraide ne peut plus jamais cibler soi-même
+    // (règle) : elle ne sert donc à rien pour se soigner, seulement pour aider un
+    // adversaire. Un joueur Le Bienfaiteur la recherche activement tant que son
+    // objectif n'est pas rempli ; sinon elle reste un dernier recours.
     if (!player.blockRessourceNextTurn) {
       const resCards = hasCategory('Ressource');
       const selfHealCards = resCards.filter((c) => c.kind !== 'entraide');
       const entraideCard = resCards.find((c) => c.kind === 'entraide');
-      const weakestOther = others.length > 0 ? others.slice().sort((a, b) => a.resistance - b.resistance)[0] : null;
+      const weakestOther = others.length > 0 ? others.slice().sort((a, b) => a.pv - b.pv)[0] : null;
 
       if (
         entraideCard && weakestOther
         && player.secret === 'bienfaiteur'
         && player.stats.entraideOnOthers < 3
-        && (player.resistance > 4 || selfHealCards.length === 0)
+        && (player.pv > 4 || selfHealCards.length === 0)
       ) {
         plan.resource = { cardId: entraideCard.id, opts: { targetId: weakestOther.id } };
         plays += 1;
       } else if (selfHealCards.length > 0) {
-        const chosen = player.resistance <= 5
+        const chosen = player.pv <= 5
           ? (selfHealCards.find((c) => c.kind === 'provisions') || selfHealCards.find((c) => c.kind === 'renfort') || selfHealCards[0])
           : (selfHealCards.find((c) => c.kind === 'provisions_urgence') || selfHealCards.find((c) => c.kind === 'ravitaillement') || selfHealCards[0]);
         plan.resource = { cardId: chosen.id };
@@ -112,14 +133,14 @@
       }
     }
 
-    // 2. Offensif : viser l'adversaire le plus faible (égalités départagées au hasard,
-    // sinon le même siège reste systématiquement la cible prioritaire à chaque tour)
+    // 2. Offensif : viser l'adversaire le plus faible (égalités départagées au hasard).
+    // Indisponible si une Catastrophe est jouée ce tour.
     const offCards = hasCategory('Offensif');
-    if (offCards.length > 0 && plays < 4 && others.length > 0) {
-      const minResistance = Math.min(...others.map((o) => o.resistance));
-      const weakestPool = others.filter((o) => o.resistance === minResistance);
+    if (!catastrophePlayed && offCards.length > 0 && plays < 4 && others.length > 0) {
+      const minPv = Math.min(...others.map((o) => o.pv));
+      const weakestPool = others.filter((o) => o.pv === minPv);
       const weakest = pick(weakestPool);
-      const chosen = offCards.find((c) => c.kind === 'amputation' && weakest.resistance <= 2)
+      const chosen = offCards.find((c) => c.kind === 'amputation' && weakest.pv <= 2)
         || offCards.find((c) => c.kind === 'machette')
         || offCards[0];
       plan.offensive = { cardId: chosen.id, targetId: weakest.id };
@@ -127,39 +148,29 @@
     }
 
     // 3. Sabotage : viser des adversaires différents tant que le budget le permet
-    // (ordre de ciblage mélangé pour ne pas toujours viser le même siège en premier)
+    // (ordre de ciblage mélangé pour ne pas toujours viser le même siège en premier).
+    // Indisponible si une Catastrophe est jouée ce tour.
     const saboCards = hasCategory('Sabotage');
-    const targeted = new Set();
-    const shuffledOthers = others
-      .map((o) => ({ o, r: Math.random() }))
-      .sort((a, b) => a.r - b.r)
-      .map((x) => x.o);
-    for (const card of saboCards) {
-      if (plays >= 4) break;
-      const target = shuffledOthers.find((o) => !targeted.has(o.id));
-      if (!target) break;
-      targeted.add(target.id);
-      plan.sabotages.push({ cardId: card.id, targetId: target.id });
-      plays += 1;
-    }
-
-    // 4. Colère : si une Catastrophe est en main, forte probabilité de la déclencher.
-    // Plus la main se remplit (risque de défausse forcée), plus l'IA se presse de
-    // la jouer — évite qu'une paire Catastrophe+Colère traîne indéfiniment et
-    // retarde la fin de partie (observé en simulation sur de rares parties très longues).
-    const catCard = player.hand.find((c) => c.category === 'Catastrophe');
-    const colereCard = player.hand.find((c) => c.category === 'Colere');
-    if (catCard && colereCard) {
-      const urgency = player.hand.length >= 4 ? 0.97 : 0.85;
-      if (Math.random() < urgency) {
-        plan.colere = { cardId: colereCard.id, catastropheCardId: catCard.id };
+    if (!catastrophePlayed) {
+      const targeted = new Set();
+      const shuffledOthers = others
+        .map((o) => ({ o, r: Math.random() }))
+        .sort((a, b) => a.r - b.r)
+        .map((x) => x.o);
+      for (const card of saboCards) {
+        if (plays >= 4) break;
+        const target = shuffledOthers.find((o) => !targeted.has(o.id));
+        if (!target) break;
+        targeted.add(target.id);
+        plan.sabotages.push({ cardId: card.id, targetId: target.id });
+        plays += 1;
       }
     }
 
     return plan;
   }
 
-  const AI = { aiChooseDefense, aiChooseDiscard, aiChooseExcessDiscard, aiVerdictGuess, aiPlanTurn };
+  const AI = { aiChooseDefense, aiChooseDiscard, aiChooseSteal, aiChooseExcessDiscard, aiVerdictGuess, aiPlanTurn };
 
   if (typeof module !== 'undefined') module.exports = AI;
   else root.CatastropheAI = AI;

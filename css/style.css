@@ -227,7 +227,6 @@ h1, h2, h3 { margin-top: 0; }
 .card.cat-Sabotage { border-left: 4px solid #9c6ad0; }
 .card.cat-Offensif { border-left: 4px solid #d9534f; }
 .card.cat-Catastrophe { border-left: 4px solid #e0c53a; }
-.card.cat-Colere { border-left: 4px solid #e0703a; }
 
 .section-title { font-size: 13px; text-transform: uppercase; color: var(--text-dim); margin: 14px 0 4px; }
 

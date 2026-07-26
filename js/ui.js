@@ -5,9 +5,9 @@
   const SECRETS = window.CatastropheData.SECRETS;
 
   const CARD_DESC = {
-    renfort: '+1 résistance',
-    provisions: '+2 résistance',
-    entraide: '+1 résistance à un autre joueur (jamais à soi-même)',
+    renfort: '+1 PV',
+    provisions: '+2 PV',
+    entraide: '+1 PV à un autre joueur (jamais à soi-même)',
     ravitaillement: 'Piocher 2 cartes',
     provisions_urgence: 'Piocher 3 cartes',
     digue: 'Annule les dégâts d\'un Tsunami',
@@ -16,19 +16,18 @@
     reserve_eau: 'Annule les dégâts d\'une Sécheresse',
     kit_secours: 'Réduit les dégâts de 1 (sauf Amputation)',
     pillage: 'Vole 1 carte au hasard à un adversaire',
-    panique: 'Force un adversaire à défausser une carte de son choix',
+    panique: 'La cible choisit et défausse une carte de sa main (perdue)',
     coupure: 'L\'adversaire ne pioche pas au prochain tour',
-    detournement: 'Force un adversaire à défausser une carte de son choix',
+    detournement: 'Vous choisissez et volez une carte dans la main de la cible',
     machette: '1 dégât direct',
     pioche_secours: '1 dégât + vole 1 carte Ressource',
-    contamination: 'Vole 1 résistance (vous la gagnez)',
+    contamination: 'Vole 1 PV (vous le gagnez)',
     amputation: '2 dégâts, ignore le Kit de secours',
-    rechauffement: 'Tous les autres joueurs perdent 1 résistance',
-    volcan: 'Catastrophe : 3 dégâts à tous les autres + cicatrice',
-    tsunami: 'Catastrophe : 3 dégâts à tous les autres + blocage Défensif',
-    seisme: 'Catastrophe : 3 dégâts à tous les autres + perte de carte',
-    secheresse: 'Catastrophe : 3 dégâts à tous les autres + blocage Ressource',
-    colere: 'Verrouille votre Catastrophe, vous devrez la jouer au tour suivant',
+    rechauffement: 'Tous les autres joueurs perdent 1 PV',
+    volcan: 'Catastrophe : dégâts à tous les autres + cicatrice — bloque Sabotage/Offensif ce tour',
+    tsunami: 'Catastrophe : dégâts à tous les autres + blocage Défensif — bloque Sabotage/Offensif ce tour',
+    seisme: 'Catastrophe : dégâts à tous les autres + perte de carte — bloque Sabotage/Offensif ce tour',
+    secheresse: 'Catastrophe : dégâts à tous les autres + blocage Ressource — bloque Sabotage/Offensif ce tour',
   };
 
   let STATE = null;
@@ -138,7 +137,7 @@
     STATE.players.forEach((p) => {
       const tile = document.createElement('div');
       tile.className = 'player-tile' + (p.eliminated ? ' eliminated' : '') + (p.id === STATE.players[STATE.currentPlayerIndex].id ? ' active' : '');
-      const pct = Math.round((p.resistance / p.maxResistance) * 100);
+      const pct = Math.round((p.pv / p.maxPv) * 100);
       const barClass = pct <= 30 ? 'low' : (pct <= 60 ? 'mid' : '');
       const cibleClass = p.cible === 'premiere' ? 'premiere' : (p.cible === 'seconde' ? 'seconde' : '');
       tile.innerHTML = `
@@ -147,7 +146,7 @@
           <span class="cible-badge ${cibleClass}">${Engine.cibleLabel(p.cible)}</span>
         </div>
         <div class="hp-bar-track"><div class="hp-bar-fill ${barClass}" style="width:${pct}%"></div></div>
-        <div class="hp-text">${p.resistance} / ${p.maxResistance} résistance${p.eliminated ? ' — éliminé' : ''}</div>
+        <div class="hp-text">${p.pv} / ${p.maxPv} PV${p.eliminated ? ' — éliminé' : ''}</div>
         <div class="hand-count">🂠 ${p.hand.length} carte${p.hand.length > 1 ? 's' : ''} en main</div>
       `;
       strip.appendChild(tile);
@@ -301,8 +300,32 @@
     render();
     return new Promise((resolve) => {
       openModal(`
-        <h2>Défausse forcée</h2>
+        <h2>Défausse forcée (Panique)</h2>
         <p>${target.name}, choisissez la carte à défausser.</p>
+        <div class="hand-row">${target.hand.map((c) => cardHtml(c)).join('')}</div>
+      `);
+      el('modal-box').querySelectorAll('.card').forEach((cardEl) => {
+        cardEl.addEventListener('click', () => {
+          const id = cardEl.getAttribute('data-card-id');
+          closeModal();
+          resolve(id);
+        });
+      });
+    });
+  }
+
+  // Détournement : c'est l'ACTEUR (celui qui a joué la carte), pas la cible, qui choisit
+  // quelle carte voler dans la main de la cible — il faut donc la lui montrer.
+  async function handleDetournementSteal(actor, target) {
+    if (actor.isAI) {
+      return AI.aiChooseSteal(target);
+    }
+    // Pas de gate() : c'est déjà le tour de l'acteur, l'écran lui appartient.
+    render();
+    return new Promise((resolve) => {
+      openModal(`
+        <h2>Détournement</h2>
+        <p>${actor.name}, choisissez la carte à voler dans la main de ${target.name}.</p>
         <div class="hand-row">${target.hand.map((c) => cardHtml(c)).join('')}</div>
       `);
       el('modal-box').querySelectorAll('.card').forEach((cardEl) => {
@@ -319,7 +342,7 @@
 
   function budgetSummary() {
     const b = STATE.turnBudget;
-    return `Cartes jouées ce tour : ${b.totalPlays} / ${Engine.TURN_BUDGET} — Types utilisés : ${Array.from(b.usedTypes).join(', ') || 'aucun'}${b.sabotageTargets.size ? ' — Sabotage visé : ' + b.sabotageTargets.size : ''}`;
+    return `Cartes jouées ce tour : ${b.totalPlays} / ${Engine.TURN_BUDGET} — Types utilisés : ${Array.from(b.usedTypes).join(', ') || 'aucun'}${b.sabotageTargets.size ? ' — Sabotage visé : ' + b.sabotageTargets.size : ''}${b.catastrophePlayed ? ' — Catastrophe jouée : Sabotage et Offensif indisponibles ce tour' : ''}`;
   }
 
   function runHumanTurn(player) {
@@ -377,22 +400,6 @@
         });
         panel.appendChild(handRow);
 
-        const colereRow = document.createElement('div');
-        const catCard = player.hand.find((c) => c.category === 'Catastrophe');
-        const colereCard = player.hand.find((c) => c.category === 'Colere');
-        if (catCard && colereCard && !STATE.turnBudget.colerePlayed) {
-          const btn = document.createElement('button');
-          btn.className = 'btn btn-secondary';
-          btn.textContent = `Jouer Colère (verrouille ${catCard.label})`;
-          btn.addEventListener('click', async () => {
-            const r = Engine.playColereCard(STATE, player.id, colereCard.id, catCard.id);
-            if (!r.ok) alert(r.reason);
-            render();
-            draw();
-          });
-          panel.appendChild(btn);
-        }
-
         const endBtn = document.createElement('button');
         endBtn.className = 'btn btn-primary btn-block';
         endBtn.textContent = 'Terminer le tour';
@@ -401,8 +408,8 @@
       };
 
       function isPlayableNow(card) {
-        if (card.category === 'Defensif' || card.category === 'Catastrophe' || card.category === 'Colere') {
-          return { ok: false, reason: 'Non jouable depuis la main sur votre propre tour.' };
+        if (card.category === 'Defensif') {
+          return { ok: false, reason: 'Non jouable depuis la main : uniquement en réaction à une attaque.' };
         }
         if (card.category === 'Ressource' && player.blockRessourceNextTurn) {
           return { ok: false, reason: 'Sécheresse : Ressource interdite ce tour.' };
@@ -413,7 +420,7 @@
         return Engine.canPlayCategory(STATE, card.category);
       }
 
-      function onCardClick(card) {
+      async function onCardClick(card) {
         if (card.category === 'Ressource' && card.kind === 'entraide') {
           pendingTargetCard = card;
           draw();
@@ -422,6 +429,12 @@
         if (card.category === 'Ressource') {
           const r = Engine.playResourceCard(STATE, player.id, card.id);
           if (!r.ok) alert(r.reason);
+          render();
+          draw();
+          return;
+        }
+        if (card.category === 'Catastrophe') {
+          await driveGen(Engine.playCatastropheCard(STATE, player.id, card.id));
           render();
           draw();
           return;
@@ -474,6 +487,9 @@
           if (r && r.needsDiscardChoice) {
             const discId = await handleForcedDiscardChoice(r.target);
             if (discId) Engine.resolveForcedDiscard(STATE, r.target.id, discId);
+          } else if (r && r.needsStealChoice) {
+            const stealId = await handleDetournementSteal(r.actor, r.target);
+            if (stealId) Engine.resolveDetournementSteal(STATE, r.actor.id, r.target.id, stealId);
           } else if (!r.ok) {
             alert(r.reason);
           }
@@ -497,6 +513,9 @@
     if (plan.resource) {
       Engine.playResourceCard(STATE, player.id, plan.resource.cardId, plan.resource.opts);
     }
+    if (plan.catastrophe) {
+      await driveGen(Engine.playCatastropheCard(STATE, player.id, plan.catastrophe.cardId));
+    }
     if (plan.offensive) {
       await driveGen(Engine.playOffensiveCard(STATE, player.id, plan.offensive.cardId, plan.offensive.targetId));
     }
@@ -505,10 +524,10 @@
       if (r && r.needsDiscardChoice) {
         const discId = await handleForcedDiscardChoice(r.target);
         if (discId) Engine.resolveForcedDiscard(STATE, r.target.id, discId);
+      } else if (r && r.needsStealChoice) {
+        const stealId = await handleDetournementSteal(r.actor, r.target);
+        if (stealId) Engine.resolveDetournementSteal(STATE, r.actor.id, r.target.id, stealId);
       }
-    }
-    if (plan.colere) {
-      Engine.playColereCard(STATE, player.id, plan.colere.cardId, plan.colere.catastropheCardId);
     }
     render();
 
@@ -535,19 +554,13 @@
       await gate(player, 'C\'est à votre tour de jouer.');
       render();
 
-      if (Engine.isForcedTurn(player)) {
-        const panel = el('turn-panel');
-        panel.innerHTML = `<h2>Tour spécial : Catastrophe obligatoire</h2><p>${player.name} doit jouer sa Catastrophe verrouillée.</p>`;
-        await driveGen(Engine.forcedTurn(STATE, player.id));
+      if (player.isAI) {
+        await runAITurn(player);
       } else {
-        if (player.isAI) {
-          await runAITurn(player);
-        } else {
-          await runHumanTurn(player);
-        }
-        if (STATE.phase === 'ended') break;
-        await driveGen(Engine.normalEndOfTurn(STATE, player.id));
+        await runHumanTurn(player);
       }
+      if (STATE.phase === 'ended') break;
+      await driveGen(Engine.normalEndOfTurn(STATE, player.id));
 
       if (STATE.phase === 'ended') break;
       Engine.advanceToNextPlayer(STATE);
@@ -567,7 +580,7 @@
           <td>${isWinner ? '🏆 ' : ''}${s.name}</td>
           <td>${Engine.secretLabel(player.secret)}${player.secretCancelled ? ' (annulé)' : ''}</td>
           <td>${s.aliveBonus}</td>
-          <td>${s.resistanceBonus}</td>
+          <td>${s.pvBonus}</td>
           <td>${s.secretBonus} ${s.secretDone ? '✓' : ''}</td>
           <td>${s.resourceCards}</td>
           <td>${s.verdictBonus}</td>
@@ -580,7 +593,7 @@
       <p>${STATE.winners.length > 1 ? 'Victoire partagée !' : 'Victoire !'}</p>
       <table>
         <thead>
-          <tr><th>Joueur</th><th>Secret</th><th>Vivant</th><th>Résistance</th><th>Secret rempli</th><th>Ressources en main</th><th>Verdict</th><th>Total</th></tr>
+          <tr><th>Joueur</th><th>Secret</th><th>Vivant</th><th>PV</th><th>Secret rempli</th><th>Ressources en main</th><th>Verdict</th><th>Total</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>

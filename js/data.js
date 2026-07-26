@@ -35,13 +35,13 @@
 
   const SECRETS = [
     { id: 'survivant', label: 'Le Survivant', desc: 'Être en vie quand le compteur atteint 8.' },
-    { id: 'bastion', label: 'Le Bastion', desc: 'Avoir strictement plus de résistance que tous les autres à la fin.' },
+    { id: 'bastion', label: 'Le Bastion', desc: 'Avoir strictement plus de PV que tous les autres à la fin.' },
     { id: 'semeur', label: 'Le Semeur', desc: 'Avoir joué au moins 3 cartes Catastrophe personnellement.' },
     { id: 'traqueur', label: 'Le Traqueur', desc: 'Avoir joué une carte Sabotage sur 3 adversaires différents.' },
     { id: 'vautour', label: 'Le Vautour', desc: "Sa cible réelle (selon sa carte Cible) a été touchée par les 4 archétypes différents." },
     { id: 'bienfaiteur', label: 'Le Bienfaiteur', desc: "Avoir joué Entraide sur un autre joueur au moins 3 fois." },
     { id: 'collectionneur', label: 'Le Collectionneur', desc: 'Avoir eu simultanément 1 Renfort + 1 Provisions + 1 Entraide non joués en main, à un moment de la partie.' },
-    { id: 'resilient', label: 'Le Résilient', desc: "N'être jamais descendu en dessous de 5 points de résistance." },
+    { id: 'resilient', label: 'Le Résilient', desc: "N'être jamais descendu en dessous de 5 points de vie." },
     { id: 'insaisissable', label: "L'Insaisissable", desc: "Avoir été touché par une carte Sabotage au plus 2 fois pendant toute la partie." },
   ];
 
@@ -50,7 +50,7 @@
     return `${prefix}_${counterRef.n}`;
   }
 
-  // Construit le paquet principal de 135 cartes (objets {id, category, kind, label, ...meta})
+  // Construit le paquet principal de 128 cartes (objets {id, category, kind, label, ...meta})
   function buildMainDeck() {
     const counter = { n: 0 };
     const deck = [];
@@ -73,12 +73,12 @@
     push('Ressource', 'ravitaillement', 'Ravitaillement', 4, { draw: 2 });
     push('Ressource', 'provisions_urgence', "Provisions d'urgence", 2, { draw: 3 });
 
-    // Défensif (28)
+    // Défensif (24)
     push('Defensif', 'digue', 'Digue', 4, { counters: 'tsunami' });
     push('Defensif', 'abri', 'Abri anti-sismique', 4, { counters: 'seisme' });
     push('Defensif', 'plan_evacuation', "Plan d'évacuation", 4, { counters: 'volcan' });
     push('Defensif', 'reserve_eau', "Réserve d'eau", 4, { counters: 'secheresse' });
-    push('Defensif', 'kit_secours', 'Kit de secours', 12, { generic: true, reduce: 1 });
+    push('Defensif', 'kit_secours', 'Kit de secours', 8, { generic: true, reduce: 1 });
 
     // Sabotage (24)
     push('Sabotage', 'pillage', 'Pillage', 6, {});
@@ -86,20 +86,17 @@
     push('Sabotage', 'coupure', 'Coupure', 6, {});
     push('Sabotage', 'detournement', 'Détournement', 6, {});
 
-    // Offensif (25)
-    push('Offensif', 'machette', 'Machette', 8, { damage: 1 });
-    push('Offensif', 'pioche_secours', 'Pioche de secours', 6, { damage: 1, stealResource: true });
-    push('Offensif', 'contamination', 'Contamination', 5, { stealResistance: 1 });
-    push('Offensif', 'amputation', 'Amputation', 3, { damage: 2, ignoresKit: true });
+    // Offensif (30)
+    push('Offensif', 'machette', 'Machette', 10, { damage: 1 });
+    push('Offensif', 'pioche_secours', 'Pioche de secours', 7, { damage: 1, stealResource: true });
+    push('Offensif', 'contamination', 'Contamination', 6, { stealResistance: 1 });
+    push('Offensif', 'amputation', 'Amputation', 4, { damage: 2, ignoresKit: true });
     push('Offensif', 'rechauffement', 'Réchauffement climatique', 3, { damageAll: 1 });
 
-    // Catastrophe (8)
+    // Catastrophe (16) — jouable directement en tour normal, plus de carte Colère
     CATASTROPHE_KINDS.forEach((k) => {
-      push('Catastrophe', k, CATASTROPHE_LABELS[k], 2, {});
+      push('Catastrophe', k, CATASTROPHE_LABELS[k], 4, {});
     });
-
-    // Colère (16)
-    push('Colere', 'colere', 'Colère', 16, {});
 
     return deck;
   }
