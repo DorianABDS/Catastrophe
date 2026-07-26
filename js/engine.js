@@ -681,8 +681,12 @@
   function endGame(state) {
     state.phase = 'ended';
     state.finalScores = computeFinalScores(state);
-    const max = Math.max(...state.finalScores.map((s) => s.total));
-    state.winners = state.finalScores.filter((s) => s.total === max).map((s) => s.playerId);
+    // Un joueur éliminé ne peut plus remporter la partie : seuls les survivants sont
+    // éligibles à la victoire (sauf si, cas limite, plus personne n'est vivant).
+    const aliveScores = state.finalScores.filter((s) => s.alive);
+    const pool = aliveScores.length > 0 ? aliveScores : state.finalScores;
+    const max = Math.max(...pool.map((s) => s.total));
+    state.winners = pool.filter((s) => s.total === max).map((s) => s.playerId);
     log(state, `Partie terminée ! Score maximum : ${max}.`);
   }
 
@@ -715,22 +719,22 @@
     }
   }
 
+  // Score final = PV restants (0 si éliminé) + secret rempli + Verdict.
+  // Ni le simple fait d'être vivant, ni les cartes Ressource non jouées, ne rapportent
+  // de points en soi : les PV restants reflètent déjà combien on a survécu.
   function computeFinalScores(state) {
     return state.players.map((player) => {
-      const aliveBonus = player.eliminated ? 0 : 5;
       const pvBonus = player.eliminated ? 0 : player.pv;
       const secretDone = !player.secretCancelled && evaluateSecret(state, player);
       const secretBonus = secretDone ? 5 : 0;
-      const resourceCards = player.hand.filter((c) => c.category === 'Ressource').length;
-      const total = aliveBonus + pvBonus + secretBonus + resourceCards + player.bonusScore;
+      const total = pvBonus + secretBonus + player.bonusScore;
       return {
         playerId: player.id,
         name: player.name,
-        aliveBonus,
+        alive: !player.eliminated,
         pvBonus,
         secretBonus,
         secretDone,
-        resourceCards,
         verdictBonus: player.bonusScore,
         total,
       };

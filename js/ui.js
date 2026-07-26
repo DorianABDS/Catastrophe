@@ -593,12 +593,10 @@
       const isWinner = STATE.winners.includes(s.playerId);
       return `
         <tr class="${isWinner ? 'winner' : ''}">
-          <td>${isWinner ? '🏆 ' : ''}${s.name}</td>
+          <td>${isWinner ? '🏆 ' : ''}${s.name}${s.alive ? '' : ' (éliminé)'}</td>
           <td>${Engine.secretLabel(player.secret)}${player.secretCancelled ? ' (annulé)' : ''}</td>
-          <td>${s.aliveBonus}</td>
           <td>${s.pvBonus}</td>
           <td>${s.secretBonus} ${s.secretDone ? '✓' : ''}</td>
-          <td>${s.resourceCards}</td>
           <td>${s.verdictBonus}</td>
           <td><strong>${s.total}</strong></td>
         </tr>
@@ -607,9 +605,10 @@
 
     el('end-content').innerHTML = `
       <p>${STATE.winners.length > 1 ? 'Victoire partagée !' : 'Victoire !'}</p>
+      <p style="font-size:13px; color: var(--text-dim, #9aa5b3);">Seul un survivant peut remporter la partie (sauf si personne n'a survécu).</p>
       <table>
         <thead>
-          <tr><th>Joueur</th><th>Secret</th><th>Vivant</th><th>PV</th><th>Secret rempli</th><th>Ressources en main</th><th>Verdict</th><th>Total</th></tr>
+          <tr><th>Joueur</th><th>Secret</th><th>PV</th><th>Secret rempli</th><th>Verdict</th><th>Total</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
