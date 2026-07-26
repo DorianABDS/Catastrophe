@@ -505,8 +505,8 @@
           victim.secretRevealed = true;
           log(state, `${actor.name} devine juste le secret de ${victim.name} (${secretLabel(victim.secret)}) : +10, secret annulé.`);
         } else {
-          actor.bonusScore -= 10;
-          log(state, `${actor.name} se trompe sur le secret de ${victim.name} : -10.`);
+          actor.bonusScore -= 5;
+          log(state, `${actor.name} se trompe sur le secret de ${victim.name} : -5.`);
         }
       } else {
         log(state, `${actor.name} ne tente rien sur le secret de ${victim.name}.`);

@@ -53,10 +53,11 @@
     if (guesser) revealed.add(guesser.secret);
     const pool = Data.SECRETS.map((s) => s.id).filter((id) => !revealed.has(id));
     const candidates = pool.length ? pool : Data.SECRETS.map((s) => s.id);
-    // Reste aussi joueur que l'ancien réglage (tentative ~45% en moyenne, pour que
-    // le Verdict continue d'arriver en jeu) mais mieux informé : la probabilité monte
-    // quand le bassin de secrets restants est petit (déduction fiable) et descend
-    // légèrement sinon, au lieu d'un simple tirage à l'aveugle sur les 9 secrets.
+    // Barème +10 / -5 : le seuil de rentabilité tombe à 1 chance sur 3 (33%) au lieu
+    // de 1 sur 2. Reste aussi joueur que l'ancien réglage (tentative ~45% en moyenne,
+    // pour que le Verdict continue d'arriver en jeu) mais mieux informé : la
+    // probabilité monte quand le bassin de secrets restants est petit (déduction
+    // fiable) et descend légèrement sinon, au lieu d'un simple tirage à l'aveugle.
     const n = candidates.length;
     let attemptChance;
     if (n <= 1) attemptChance = 0.8;
@@ -79,17 +80,33 @@
 
     const hasCategory = (cat) => player.hand.filter((c) => c.category === cat);
 
-    // 1. Ressource : soigner si bas, sinon piocher/valoriser
+    // 1. Ressource : soigner si bas, sinon piocher/valoriser.
+    // Un joueur Le Bienfaiteur cherche activement à jouer Entraide sur un allié
+    // (jamais sur soi) tant que son objectif n'est pas rempli — sans quoi ce secret
+    // n'est jamais atteint par une IA purement égoïste (validé en simulation).
     if (!player.blockRessourceNextTurn) {
       const resCards = hasCategory('Ressource');
       if (resCards.length > 0) {
         let chosen;
-        if (player.resistance <= 5) {
+        let opts;
+        const entraideCard = resCards.find((c) => c.kind === 'entraide');
+        if (
+          player.secret === 'bienfaiteur'
+          && entraideCard
+          && player.stats.entraideOnOthers < 3
+          && others.length > 0
+          && (player.resistance > 4 || resCards.length > 1)
+        ) {
+          const weakestOther = others.slice().sort((a, b) => a.resistance - b.resistance)[0];
+          chosen = entraideCard;
+          opts = { targetId: weakestOther.id };
+        } else if (player.resistance <= 5) {
           chosen = resCards.find((c) => c.kind === 'provisions') || resCards.find((c) => c.kind === 'renfort') || resCards.find((c) => c.kind === 'entraide') || resCards[0];
+          opts = chosen.kind === 'entraide' ? { targetId: player.id } : undefined;
         } else {
           chosen = resCards.find((c) => c.kind === 'provisions_urgence') || resCards.find((c) => c.kind === 'ravitaillement') || resCards[0];
+          opts = chosen.kind === 'entraide' ? { targetId: player.id } : undefined;
         }
-        const opts = chosen.kind === 'entraide' ? { targetId: player.id } : undefined;
         plan.resource = { cardId: chosen.id, opts };
         plays += 1;
       }

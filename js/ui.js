@@ -236,7 +236,7 @@
       revealed.add(guesser.secret);
       openModal(`
         <h2>Le Verdict</h2>
-        <p>${guesser.name}, ${victim.name} a été éliminé. Deviner son secret rapporte +10 points (bonne réponse) ou -10 (mauvaise). Vous pouvez aussi ne rien tenter.</p>
+        <p>${guesser.name}, ${victim.name} a été éliminé. Deviner son secret rapporte +10 points (bonne réponse) ou -5 (mauvaise). Vous pouvez aussi ne rien tenter.</p>
         <p style="font-size:12px; color: var(--text-dim, #9aa5b3);">Les secrets déjà révélés ou identiques au vôtre sont grisés : ce ne peut pas être celui de ${victim.name} (chaque secret n'existe qu'en un seul exemplaire).</p>
         <div class="option-list">
           ${SECRETS.map((s) => `<div class="option-item${revealed.has(s.id) ? ' disabled' : ''}" data-id="${s.id}"><strong>${s.label}</strong><br><small>${s.desc}</small></div>`).join('')}
