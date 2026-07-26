@@ -435,6 +435,7 @@
         }
         if (card.category === 'Catastrophe') {
           await driveGen(Engine.playCatastropheCard(STATE, player.id, card.id));
+          if (STATE.phase === 'ended') { resolve(); return; }
           render();
           draw();
           return;
@@ -463,6 +464,7 @@
           chip.addEventListener('click', async () => {
             pendingTargetCard = null;
             await onTargetChosen(card, p.id);
+            if (STATE.phase === 'ended') { resolve(); return; }
             draw();
           });
           row.appendChild(chip);
@@ -513,13 +515,14 @@
     if (plan.resource) {
       Engine.playResourceCard(STATE, player.id, plan.resource.cardId, plan.resource.opts);
     }
-    if (plan.catastrophe) {
+    if (plan.catastrophe && STATE.phase !== 'ended') {
       await driveGen(Engine.playCatastropheCard(STATE, player.id, plan.catastrophe.cardId));
     }
-    if (plan.offensive) {
+    if (plan.offensive && STATE.phase !== 'ended') {
       await driveGen(Engine.playOffensiveCard(STATE, player.id, plan.offensive.cardId, plan.offensive.targetId));
     }
     for (const sab of plan.sabotages) {
+      if (STATE.phase === 'ended') break;
       const r = Engine.playSabotageCard(STATE, player.id, sab.cardId, sab.targetId);
       if (r && r.needsDiscardChoice) {
         const discId = await handleForcedDiscardChoice(r.target);
@@ -530,6 +533,8 @@
       }
     }
     render();
+
+    if (STATE.phase === 'ended') return;
 
     panel.innerHTML += `<div class="section-title">Tour terminé</div>`;
     await new Promise((resolve) => {

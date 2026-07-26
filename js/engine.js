@@ -341,6 +341,7 @@
         changePv(state, p, -dmg);
         log(state, `${p.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : `perd ${dmg} PV`} (Réchauffement).`);
       }
+      checkEndConditions(state);
       return;
     }
 
@@ -373,6 +374,7 @@
       changePv(state, target, -2);
       log(state, `${target.name} subit 2 dégâts d'Amputation (non bloquables).`);
     }
+    checkEndConditions(state);
   }
 
   // ---------- Cartes Sabotage ----------
@@ -534,7 +536,24 @@
       }
     }
 
+    checkEndConditions(state);
+  }
+
+  // La partie se termine soit au 8e Catastrophe résolue, soit dès qu'il ne reste
+  // plus qu'un seul survivant actif (sans quoi, en fin de partie, ce dernier
+  // survivant devrait poser toutes les Catastrophes restantes tout seul pour
+  // que le compteur atteigne 8 — absurde puisqu'il n'y a plus personne à toucher).
+  function checkEndConditions(state) {
+    if (state.phase === 'ended') return;
     if (state.endCounter >= MAX_END_COUNTER) {
+      endGame(state);
+      return;
+    }
+    const active = activePlayers(state);
+    if (active.length <= 1) {
+      log(state, active.length === 1
+        ? `${active[0].name} est l'unique survivant : la partie se termine immédiatement.`
+        : 'Plus aucun survivant : la partie se termine.');
       endGame(state);
     }
   }
