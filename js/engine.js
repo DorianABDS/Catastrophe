@@ -64,8 +64,8 @@
         id: 'p' + idx,
         name: cfg.name,
         isAI: !!cfg.isAI,
-        pv: 10,
-        maxPv: 10,
+        pv: 12,
+        maxPv: 12,
         hand: [],
         cible: cible.kind,
         secret: secret.kind,
@@ -81,7 +81,7 @@
           catastrophesPlayed: 0,
           sabotageTargets: new Set(),
           entraideOnOthers: 0,
-          minPvEver: 10,
+          minPvEver: 12,
           sabotagedEver: false,
           sabotagedCount: 0,
           vautour: null,
@@ -105,9 +105,9 @@
       }
     });
 
-    // Main de départ : 3 cartes
+    // Main de départ : 4 cartes
     state.players.forEach((p) => {
-      for (let i = 0; i < 3; i++) drawOne(state, p);
+      for (let i = 0; i < 4; i++) drawOne(state, p);
     });
 
     resetTurnBudget(state);
