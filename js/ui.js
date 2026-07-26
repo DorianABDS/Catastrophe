@@ -33,6 +33,11 @@
   let STATE = null;
   let screenOwnerId = null; // qui est actuellement affiché à l'écran (pour gérer le pass-and-play)
 
+  // ---------- Mode session (plusieurs parties, score cumulé) ----------
+
+  const SESSION_TARGET_BY_COUNT = { 2: 40, 3: 35, 4: 35, 5: 30, 6: 30, 7: 25, 8: 25 };
+  let SESSION = null; // { active, target, round, configs, cumulative: [{name, isAI, total}] }
+
   const el = (id) => document.getElementById(id);
 
   // ---------- Setup screen ----------
@@ -603,6 +608,42 @@
       `;
     }).join('');
 
+    let extraHtml = `<button id="btn-restart" class="btn btn-primary btn-block">Nouvelle partie</button>`;
+
+    if (SESSION && SESSION.active) {
+      SESSION.cumulative.forEach((entry) => {
+        const s = scores.find((x) => x.name === entry.name);
+        if (s) entry.total += s.total;
+      });
+      const ranked = SESSION.cumulative.slice().sort((a, b) => b.total - a.total);
+      const sessionOver = ranked[0].total >= SESSION.target;
+      const topScore = ranked[0].total;
+      const recapRows = ranked.map((entry) => {
+        const isTop = entry.total === topScore;
+        return `
+          <tr class="${sessionOver && isTop ? 'session-winner' : (isTop ? 'session-leader' : '')}">
+            <td>${sessionOver && isTop ? '🏆 ' : ''}${entry.name}${entry.isAI ? ' <span class="ai-tag">(IA)</span>' : ''}</td>
+            <td><strong>${entry.total}</strong> / ${SESSION.target}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const recapSection = `
+        <div class="session-recap">
+          <h3>${sessionOver ? 'Session terminée !' : `Session en cours — manche ${SESSION.round}`}</h3>
+          <p class="subtitle">Objectif : ${SESSION.target} points cumulés.</p>
+          <table>
+            <thead><tr><th>Joueur</th><th>Score cumulé</th></tr></thead>
+            <tbody>${recapRows}</tbody>
+          </table>
+        </div>
+      `;
+
+      extraHtml = sessionOver
+        ? recapSection + `<button id="btn-new-session" class="btn btn-primary btn-block">Nouvelle session</button>`
+        : recapSection + `<button id="btn-next-round" class="btn btn-primary btn-block">Manche suivante</button>`;
+    }
+
     el('end-content').innerHTML = `
       <p>${STATE.winners.length > 1 ? 'Victoire partagée !' : 'Victoire !'}</p>
       <p style="font-size:13px; color: var(--text-dim, #9aa5b3);">Seul un survivant peut remporter la partie (sauf si personne n'a survécu).</p>
@@ -612,11 +653,29 @@
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      <button id="btn-restart" class="btn btn-primary btn-block">Nouvelle partie</button>
+      ${extraHtml}
     `;
-    el('btn-restart').addEventListener('click', () => {
-      showScreen('screen-setup');
-    });
+
+    if (SESSION && SESSION.active) {
+      const ranked = SESSION.cumulative.slice().sort((a, b) => b.total - a.total);
+      const sessionOver = ranked[0].total >= SESSION.target;
+      if (sessionOver) {
+        el('btn-new-session').addEventListener('click', () => {
+          SESSION = null;
+          showScreen('screen-setup');
+        });
+      } else {
+        el('btn-next-round').addEventListener('click', () => {
+          SESSION.round += 1;
+          SESSION.configs.push(SESSION.configs.shift());
+          startRound(SESSION.configs);
+        });
+      }
+    } else {
+      el('btn-restart').addEventListener('click', () => {
+        showScreen('screen-setup');
+      });
+    }
   }
 
   // ---------- Erreurs visibles ----------
@@ -641,16 +700,45 @@
 
   // ---------- Bootstrap ----------
 
+  function updateSessionTargetDefault() {
+    const count = parseInt(el('player-count').value, 10);
+    el('session-target').value = SESSION_TARGET_BY_COUNT[count] || 30;
+  }
+
+  function startRound(configs) {
+    STATE = Engine.initGame(configs);
+    screenOwnerId = null;
+    showScreen('screen-game');
+    render();
+    runTurnLoop();
+  }
+
   function init() {
     renderPlayerConfigRows();
-    el('player-count').addEventListener('change', renderPlayerConfigRows);
+    updateSessionTargetDefault();
+    el('player-count').addEventListener('change', () => {
+      renderPlayerConfigRows();
+      updateSessionTargetDefault();
+    });
+    el('session-mode-toggle').addEventListener('change', (e) => {
+      el('session-target-label').classList.toggle('hidden', !e.target.checked);
+    });
     el('btn-start-game').addEventListener('click', () => {
       const configs = collectPlayerConfigs();
-      STATE = Engine.initGame(configs);
-      screenOwnerId = null;
-      showScreen('screen-game');
-      render();
-      runTurnLoop();
+      const sessionActive = el('session-mode-toggle').checked;
+      if (sessionActive) {
+        const target = parseInt(el('session-target').value, 10) || SESSION_TARGET_BY_COUNT[configs.length] || 30;
+        SESSION = {
+          active: true,
+          target,
+          round: 1,
+          configs,
+          cumulative: configs.map((c) => ({ name: c.name, isAI: c.isAI, total: 0 })),
+        };
+      } else {
+        SESSION = null;
+      }
+      startRound(configs);
     });
     showScreen('screen-setup');
   }

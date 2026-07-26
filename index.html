@@ -29,6 +29,12 @@
         </select>
       </label>
       <div id="player-config-list"></div>
+      <div class="session-config-row">
+        <label><input type="checkbox" id="session-mode-toggle"> Mode session (plusieurs parties, limite de score)</label>
+        <label id="session-target-label" class="hidden">Objectif de points cumulés :
+          <input type="number" id="session-target" min="1" step="1">
+        </label>
+      </div>
       <button id="btn-start-game" class="btn btn-primary">Commencer la partie</button>
     </div>
   </section>
