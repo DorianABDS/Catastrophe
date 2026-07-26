@@ -591,6 +591,26 @@
     });
   }
 
+  // ---------- Erreurs visibles ----------
+  // Sans ceci, une exception JS pendant le rendu du tour fige l'écran sans aucun
+  // message : le joueur voit juste une main vide/figée sans savoir pourquoi.
+
+  function showFatalError(message) {
+    let banner = document.getElementById('fatal-error-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'fatal-error-banner';
+      banner.className = 'fatal-error-banner';
+      document.body.appendChild(banner);
+    }
+    banner.textContent = `Erreur : ${message} — rechargez la page (l'état de la partie n'est pas sauvegardé). Si ça se reproduit, notez ce message exact.`;
+  }
+
+  window.addEventListener('error', (e) => showFatalError(e.message));
+  window.addEventListener('unhandledrejection', (e) => {
+    showFatalError((e.reason && e.reason.message) || String(e.reason));
+  });
+
   // ---------- Bootstrap ----------
 
   function init() {
