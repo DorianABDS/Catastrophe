@@ -115,7 +115,7 @@
       if (
         entraideCard && weakestOther
         && player.secret === 'bienfaiteur'
-        && player.stats.entraideOnOthers < 3
+        && player.stats.entraideOnOthers < 2
         && (player.pv > 4 || selfHealCards.length === 0)
       ) {
         plan.resource = { cardId: entraideCard.id, opts: { targetId: weakestOther.id } };

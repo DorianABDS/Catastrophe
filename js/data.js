@@ -37,12 +37,12 @@
     { id: 'survivant', label: 'Le Survivant', desc: 'Être en vie quand le compteur atteint 8.' },
     { id: 'bastion', label: 'Le Bastion', desc: 'Avoir strictement plus de PV que tous les autres à la fin.' },
     { id: 'semeur', label: 'Le Semeur', desc: 'Avoir joué au moins 3 cartes Catastrophe personnellement.' },
-    { id: 'traqueur', label: 'Le Traqueur', desc: 'Avoir joué une carte Sabotage sur 3 adversaires différents.' },
+    { id: 'traqueur', label: 'Le Traqueur', desc: "Avoir joué au moins 3 cartes Sabotage au total, en touchant autant d'adversaires différents que possible (jusqu'à 3)." },
     { id: 'vautour', label: 'Le Vautour', desc: "Sa cible réelle (selon sa carte Cible) a été touchée par les 4 archétypes différents." },
-    { id: 'bienfaiteur', label: 'Le Bienfaiteur', desc: "Avoir joué Entraide sur un autre joueur au moins 3 fois." },
-    { id: 'collectionneur', label: 'Le Collectionneur', desc: 'Avoir eu simultanément 1 Renfort + 1 Provisions + 1 Entraide non joués en main, à un moment de la partie.' },
+    { id: 'bienfaiteur', label: 'Le Bienfaiteur', desc: "Avoir joué Entraide sur un autre joueur au moins 2 fois." },
+    { id: 'collectionneur', label: 'Le Collectionneur', desc: 'Avoir eu simultanément 1 Provisions + 1 Entraide non joués en main, à un moment de la partie.' },
     { id: 'resilient', label: 'Le Résilient', desc: "N'être jamais descendu en dessous de 5 points de vie." },
-    { id: 'insaisissable', label: "L'Insaisissable", desc: "Avoir été touché par une carte Sabotage au plus 2 fois pendant toute la partie." },
+    { id: 'insaisissable', label: "L'Insaisissable", desc: "Avoir été touché par une carte Sabotage au plus (6 - nombre de joueurs, minimum 1) fois pendant toute la partie." },
   ];
 
   function buildCardId(counterRef, prefix) {

@@ -80,6 +80,7 @@
         stats: {
           catastrophesPlayed: 0,
           sabotageTargets: new Set(),
+          sabotagePlaysTotal: 0,
           entraideOnOthers: 0,
           minPvEver: 15,
           sabotagedEver: false,
@@ -142,7 +143,12 @@
   function noteCollectionneurProgress(player) {
     if (player.secret !== 'collectionneur' || player.stats.collectionneurAchieved) return;
     const has = (kind) => player.hand.some((c) => c.kind === kind);
-    if (has('renfort') && has('provisions') && has('entraide')) {
+    // Assoupli du trio complet (Renfort+Provisions+Entraide, ~7% de réussite en simulation,
+    // beaucoup trop rare) à la paire Provisions+Entraide : les 2 types de Ressource les
+    // moins nombreux dans le paquet (8 chacun contre 12 pour Renfort), ce qui garde une
+    // vraie difficulté tout en ramenant le taux de réussite dans la même fourchette que
+    // les autres secrets (~20% tous effectifs confondus, vérifié en simulation).
+    if (has('provisions') && has('entraide')) {
       player.stats.collectionneurAchieved = true;
     }
   }
@@ -390,6 +396,7 @@
     discardCard(state, actor, cardId);
     registerPlay(state, 'Sabotage', targetId);
     actor.stats.sabotageTargets.add(targetId);
+    actor.stats.sabotagePlaysTotal += 1;
     target.stats.sabotagedEver = true;
     target.stats.sabotagedCount += 1;
 
@@ -698,22 +705,29 @@
         return !player.eliminated && state.players.every((o) => o.id === player.id || player.pv > o.pv);
       case 'semeur':
         return player.stats.catastrophesPlayed >= 3;
-      case 'traqueur':
-        return player.stats.sabotageTargets.size >= 3;
+      case 'traqueur': {
+        // Le nombre d'adversaires distincts requis s'adapte à l'effectif : "3 adversaires
+        // différents" était mathématiquement impossible à 2-3 joueurs (moins de 3 rivaux
+        // en jeu). On exige aussi un minimum de Sabotage joués pour garder une vraie
+        // difficulté à faible effectif plutôt qu'une réussite triviale au 1er Sabotage.
+        const requiredTargets = Math.min(3, state.players.length - 1);
+        return player.stats.sabotageTargets.size >= requiredTargets && player.stats.sabotagePlaysTotal >= 3;
+      }
       case 'vautour':
         return !!(player.stats.vautour && player.stats.vautour.achieved.size >= 4);
       case 'bienfaiteur':
-        return player.stats.entraideOnOthers >= 3;
+        return player.stats.entraideOnOthers >= 2;
       case 'collectionneur':
         return player.stats.collectionneurAchieved;
       case 'resilient':
         return player.stats.minPvEver >= 5;
-      case 'insaisissable':
-        // Tolère jusqu'à 2 Sabotages subis : avec un paquet Sabotage conséquent cyclant
-        // sur ~70-120 tours, "jamais aucune fois" s'est avéré presque toujours impossible
-        // en simulation, surtout à 2-3 joueurs où toute la pression se concentre sur un
-        // seul adversaire.
-        return player.stats.sabotagedCount <= 2;
+      case 'insaisissable': {
+        // Tolérance qui décroît avec le nombre de joueurs : à faible effectif, toute la
+        // pression Sabotage se concentre sur un seul adversaire (un seuil fixe rendait le
+        // secret quasi impossible à 2 joueurs et quasi automatique à 8).
+        const tolerance = Math.max(1, 6 - state.players.length);
+        return player.stats.sabotagedCount <= tolerance;
+      }
       default:
         return false;
     }
