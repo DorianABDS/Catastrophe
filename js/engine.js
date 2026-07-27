@@ -14,6 +14,7 @@
   const MAX_HAND = 5;
   const TURN_BUDGET = 4;
   const KILL_BONUS = 3;
+  const SURVIVAL_BONUS = 8;
 
   function log(state, message, extra) {
     state.log.push(Object.assign({ turn: state.turnNumber, message }, extra || {}));
@@ -720,15 +721,15 @@
   // de points en soi : les PV restants reflètent déjà combien on a survécu.
   function computeFinalScores(state) {
     return state.players.map((player) => {
-      const pvBonus = player.eliminated ? 0 : player.pv;
+      const survivalBonus = player.eliminated ? 0 : SURVIVAL_BONUS;
       const secretDone = evaluateSecret(state, player);
       const secretBonus = secretDone ? 5 : 0;
-      const total = pvBonus + secretBonus + player.bonusScore;
+      const total = survivalBonus + secretBonus + player.bonusScore;
       return {
         playerId: player.id,
         name: player.name,
         alive: !player.eliminated,
-        pvBonus,
+        survivalBonus,
         secretBonus,
         secretDone,
         killBonus: player.bonusScore,

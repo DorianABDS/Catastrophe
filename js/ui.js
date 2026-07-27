@@ -593,7 +593,7 @@
         <tr class="${isWinner ? 'winner' : ''}">
           <td>${isWinner ? '🏆 ' : ''}${s.name}${s.alive ? '' : ' (éliminé)'}</td>
           <td>${Engine.secretLabel(player.secret)}</td>
-          <td>${s.pvBonus}</td>
+          <td>${s.survivalBonus}</td>
           <td>${s.secretBonus} ${s.secretDone ? '✓' : ''}</td>
           <td>${s.killBonus}</td>
           <td><strong>${s.total}</strong></td>
@@ -642,7 +642,7 @@
       <p style="font-size:13px; color: var(--text-dim, #9aa5b3);">Seul un survivant peut remporter la partie (sauf si personne n'a survécu).</p>
       <table>
         <thead>
-          <tr><th>Joueur</th><th>Secret</th><th>PV</th><th>Secret rempli</th><th>Kills</th><th>Total</th></tr>
+          <tr><th>Joueur</th><th>Secret</th><th>Survie</th><th>Secret rempli</th><th>Kills</th><th>Total</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
