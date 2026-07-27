@@ -18,9 +18,9 @@
   // n'écrase plus un survivant à 2 PV), mais une bonne santé finale reste récompensée
   // par palier plutôt qu'à l'unité de PV près.
   const SURVIVAL_TIERS = [
-    { max: 5, bonus: 6 },   // in extremis
-    { max: 10, bonus: 8 },  // stable
-    { max: Infinity, bonus: 10 }, // en pleine forme
+    { max: 5, bonus: 4 },   // in extremis
+    { max: 10, bonus: 6 },  // stable
+    { max: Infinity, bonus: 8 }, // en pleine forme
   ];
 
   function survivalTierBonus(pv) {
