@@ -10,16 +10,16 @@
     entraide: '+1 PV à un autre joueur (jamais à soi-même)',
     ravitaillement: 'Piocher 2 cartes',
     provisions_urgence: 'Piocher 3 cartes',
+    sursis: 'Jouable seulement à 5 PV ou moins : +3 PV',
     digue: 'Annule les dégâts d\'un Tsunami',
     abri: 'Annule les dégâts d\'un Séisme',
     plan_evacuation: 'Annule les dégâts d\'un Volcan',
     reserve_eau: 'Annule les dégâts d\'une Sécheresse',
-    kit_secours: 'Réduit les dégâts de 1 (sauf Amputation)',
+    kit_secours: 'Annule les dégâts de Machette, Pioche de secours ou Contamination',
     pillage: 'Vole 1 carte au hasard à un adversaire',
-    panique: 'La cible choisit et défausse une carte de sa main (perdue)',
     coupure: 'L\'adversaire ne pioche pas au prochain tour',
     detournement: 'Vous choisissez et volez une carte dans la main de la cible',
-    machette: '1 dégât direct',
+    machette: '2 dégâts directs',
     pioche_secours: '1 dégât + vole 1 carte Ressource',
     contamination: 'Vole 1 PV (vous le gagnez)',
     amputation: '2 dégâts, ignore le Kit de secours',
@@ -333,28 +333,6 @@
     });
   }
 
-  async function handleForcedDiscardChoice(target) {
-    if (target.isAI) {
-      return AI.aiChooseDiscard(target);
-    }
-    await gate(target, 'On vous force à défausser une carte de votre choix.');
-    render();
-    return new Promise((resolve) => {
-      openModal(`
-        <h2>Défausse forcée (Panique)</h2>
-        <p>${target.name}, choisissez la carte à défausser.</p>
-        <div class="hand-row">${(() => { const counts = countByKind(target.hand); return target.hand.map((c) => cardHtml(c, { count: counts[c.kind] })).join(''); })()}</div>
-      `);
-      el('modal-box').querySelectorAll('.card').forEach((cardEl) => {
-        cardEl.addEventListener('click', () => {
-          const id = cardEl.getAttribute('data-card-id');
-          closeModal();
-          resolve(id);
-        });
-      });
-    });
-  }
-
   // Détournement : c'est l'ACTEUR (celui qui a joué la carte), pas la cible, qui choisit
   // quelle carte voler dans la main de la cible — il faut donc la lui montrer.
   async function handleDetournementSteal(actor, target) {
@@ -484,6 +462,9 @@
         if (card.category === 'Ressource' && card.kind === 'entraide' && Engine.activePlayers(STATE).filter((p) => p.id !== player.id).length === 0) {
           return { ok: false, reason: 'Aucun autre joueur actif à qui venir en aide.' };
         }
+        if (card.kind === 'sursis' && player.pv > card.requiresLowPv) {
+          return { ok: false, reason: `Jouable uniquement à ${card.requiresLowPv} PV ou moins.` };
+        }
         return Engine.canPlayCategory(STATE, card.category);
       }
 
@@ -553,10 +534,7 @@
           await driveGen(Engine.playOffensiveCard(STATE, player.id, card.id, targetId));
         } else if (card.category === 'Sabotage') {
           const r = Engine.playSabotageCard(STATE, player.id, card.id, targetId);
-          if (r && r.needsDiscardChoice) {
-            const discId = await handleForcedDiscardChoice(r.target);
-            if (discId) Engine.resolveForcedDiscard(STATE, r.target.id, discId);
-          } else if (r && r.needsStealChoice) {
+          if (r && r.needsStealChoice) {
             const stealId = await handleDetournementSteal(r.actor, r.target);
             if (stealId) Engine.resolveDetournementSteal(STATE, r.actor.id, r.target.id, stealId);
           } else if (!r.ok) {
@@ -591,10 +569,7 @@
     for (const sab of plan.sabotages) {
       if (STATE.phase === 'ended') break;
       const r = Engine.playSabotageCard(STATE, player.id, sab.cardId, sab.targetId);
-      if (r && r.needsDiscardChoice) {
-        const discId = await handleForcedDiscardChoice(r.target);
-        if (discId) Engine.resolveForcedDiscard(STATE, r.target.id, discId);
-      } else if (r && r.needsStealChoice) {
+      if (r && r.needsStealChoice) {
         const stealId = await handleDetournementSteal(r.actor, r.target);
         if (stealId) Engine.resolveDetournementSteal(STATE, r.actor.id, r.target.id, stealId);
       }

@@ -17,14 +17,6 @@
     return null;
   }
 
-  // Choisit une carte à défausser suite à Panique
-  // (le Défensif ne sert qu'en réaction : les doublons excédentaires sont les moins utiles à garder)
-  function aiChooseDiscard(player, reason) {
-    const priority = ['Defensif', 'Offensif', 'Sabotage', 'Ressource', 'Catastrophe'];
-    const sorted = player.hand.slice().sort((a, b) => priority.indexOf(a.category) - priority.indexOf(b.category));
-    return sorted.length ? sorted[0].id : null;
-  }
-
   // Choisit quelle carte voler dans la main de la cible pour Détournement
   // (priorité aux cartes les plus utiles à récupérer / à retirer à l'adversaire)
   function aiChooseSteal(target) {
@@ -108,7 +100,9 @@
     // objectif n'est pas rempli ; sinon elle reste un dernier recours.
     if (!player.blockRessourceNextTurn) {
       const resCards = hasCategory('Ressource');
-      const selfHealCards = resCards.filter((c) => c.kind !== 'entraide');
+      // Sursis n'est jouable qu'à 5 PV ou moins (règle du moteur) : on l'exclut des
+      // options tant que ce n'est pas le cas, pour ne jamais tenter un coup invalide.
+      const selfHealCards = resCards.filter((c) => c.kind !== 'entraide' && (c.kind !== 'sursis' || player.pv <= 5));
       const entraideCard = resCards.find((c) => c.kind === 'entraide');
       const weakestOther = others.length > 0 ? others.slice().sort((a, b) => a.pv - b.pv)[0] : null;
 
@@ -122,7 +116,7 @@
         plays += 1;
       } else if (selfHealCards.length > 0) {
         const chosen = player.pv <= 5
-          ? (selfHealCards.find((c) => c.kind === 'provisions') || selfHealCards.find((c) => c.kind === 'renfort') || selfHealCards[0])
+          ? (selfHealCards.find((c) => c.kind === 'sursis') || selfHealCards.find((c) => c.kind === 'provisions') || selfHealCards.find((c) => c.kind === 'renfort') || selfHealCards[0])
           : (selfHealCards.find((c) => c.kind === 'provisions_urgence') || selfHealCards.find((c) => c.kind === 'ravitaillement') || selfHealCards[0]);
         plan.resource = { cardId: chosen.id };
         plays += 1;
@@ -170,7 +164,7 @@
     return plan;
   }
 
-  const AI = { aiChooseDefense, aiChooseDiscard, aiChooseSteal, aiChooseExcessDiscard, aiVerdictGuess, aiPlanTurn };
+  const AI = { aiChooseDefense, aiChooseSteal, aiChooseExcessDiscard, aiVerdictGuess, aiPlanTurn };
 
   if (typeof module !== 'undefined') module.exports = AI;
   else root.CatastropheAI = AI;

@@ -223,6 +223,10 @@
       }
     }
 
+    if (card.kind === 'sursis' && player.pv > card.requiresLowPv) {
+      return { ok: false, reason: `Sursis n'est jouable qu'à ${card.requiresLowPv} PV ou moins.` };
+    }
+
     discardCard(state, player, cardId);
     registerPlay(state, 'Ressource');
 
@@ -251,6 +255,10 @@
         drawN(state, player, 3);
         log(state, `${player.name} joue Provisions d'urgence (pioche 3 cartes).`);
         break;
+      case 'sursis':
+        changePv(state, player, 3);
+        log(state, `${player.name} joue Sursis (+3 PV).`);
+        break;
       default:
         break;
     }
@@ -259,13 +267,19 @@
 
   // ---------- Défense réactive (générateur) ----------
 
+  // Kit de secours annule totalement les dégâts de ces 3 cartes Offensif (jamais les
+  // Catastrophes, ni Amputation, ni Réchauffement) : ça lui donne un rôle propre et
+  // distinct des contres Défensif spécifiques (qui ne visent que les Catastrophes).
+  const KIT_SECOURS_BLOCKS = ['machette', 'pioche_secours', 'contamination'];
+
   function usableDefenseCards(player, context) {
     // context: {kind:'catastrophe'|'offensif', catastropheKind, offensifKind}
     if (player.blockDefensifThisTurn) return [];
     return player.hand.filter((c) => {
       if (c.category !== 'Defensif') return false;
-      if (context.kind === 'offensif' && context.offensifKind === 'amputation') return false; // rien ne bloque Amputation
-      if (c.kind === 'kit_secours') return true;
+      if (c.kind === 'kit_secours') {
+        return context.kind === 'offensif' && KIT_SECOURS_BLOCKS.includes(context.offensifKind);
+      }
       if (context.kind === 'catastrophe') return c.counters === context.catastropheKind;
       return false; // pas de défensif spécifique contre l'Offensif
     });
@@ -321,7 +335,7 @@
     const { defenseUsed } = yield* reactToDamage(state, targetId, { kind: 'offensif', offensifKind: card.kind });
 
     if (card.kind === 'machette') {
-      const dmg = defenseUsed ? 0 : 1;
+      const dmg = defenseUsed ? 0 : 2;
       changePv(state, target, -dmg);
       log(state, `${target.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : `perd ${dmg} PV`}.`);
     } else if (card.kind === 'pioche_secours') {
@@ -387,22 +401,12 @@
         target.skipNextDraw = true;
         log(state, `${actor.name} joue Coupure : ${target.name} ne pioche pas au prochain tour.`);
         break;
-      case 'panique':
-        return { ok: true, needsDiscardChoice: true, card, actor, target };
       case 'detournement':
         return { ok: true, needsStealChoice: true, card, actor, target };
       default:
         break;
     }
     return { ok: true };
-  }
-
-  // Panique : la cible choisit elle-même une carte de sa main et la défausse (disparaît du jeu).
-  function resolveForcedDiscard(state, targetId, cardId) {
-    const target = getPlayer(state, targetId);
-    const discarded = discardCard(state, target, cardId);
-    if (discarded) log(state, `${target.name} défausse ${discarded.label} (Panique).`);
-    return discarded;
   }
 
   // Détournement : l'acteur choisit lui-même une carte dans la main de la cible et la vole
@@ -493,9 +497,6 @@
           fullyCancelled = true;
           if (isWeakness) bonus = 1;
         }
-      } else if (defenseUsed && defenseUsed.kind === 'kit_secours') {
-        finalDamage = Math.max(0, baseDamage - 1);
-        fullyCancelled = finalDamage === 0;
       } else {
         finalDamage = baseDamage;
       }
@@ -724,7 +725,7 @@
     MAX_END_COUNTER, MAX_HAND, TURN_BUDGET,
     initGame, activePlayers, getPlayer, secretLabel,
     canPlayCategory, playResourceCard, playOffensiveCard, playSabotageCard,
-    resolveForcedDiscard, resolveDetournementSteal, playCatastropheCard, usableDefenseCards,
+    resolveDetournementSteal, playCatastropheCard, usableDefenseCards,
     normalEndOfTurn, advanceToNextPlayer,
     evaluateSecret, computeFinalScores, endGame, log, drawOne, drawN,
   };
