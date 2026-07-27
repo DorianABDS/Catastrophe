@@ -10,7 +10,7 @@
     entraide: '+1 PV à un autre joueur (jamais à soi-même)',
     ravitaillement: 'Piocher 2 cartes',
     provisions_urgence: 'Piocher 3 cartes',
-    sursis: 'Jouable seulement à 5 PV ou moins : +3 PV',
+    sursis: 'Jouable seulement à 3 PV ou moins : +4 PV',
     digue: 'Annule les dégâts d\'un Tsunami',
     abri: 'Annule les dégâts d\'un Séisme',
     plan_evacuation: 'Annule les dégâts d\'un Volcan',

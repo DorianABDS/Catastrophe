@@ -72,6 +72,8 @@
         skipNextDraw: false,
         blockDefensifThisTurn: false,
         blockRessourceNextTurn: false,
+        autoShieldPending: false,
+        autoShieldUsed: false,
         stats: {
           catastrophesPlayed: 0,
           sabotageTargets: new Set(),
@@ -148,9 +150,24 @@
     return card;
   }
 
-  function changePv(state, player, delta) {
+  // Bouclier de détresse : gratuit, sans carte, une seule fois par partie. La 1ère fois
+  // qu'un joueur passe à 5 PV ou moins, il bloque automatiquement la prochaine attaque
+  // qu'il subit (le coup qui l'a fait passer sous ce seuil n'est PAS concerné — seulement
+  // le suivant). `opts.unblockable` permet à Amputation de rester la seule attaque
+  // totalement imparable. Retourne false si les dégâts ont été bloqués par le bouclier.
+  function changePv(state, player, delta, opts) {
+    const unblockable = opts && opts.unblockable;
+    if (!unblockable && delta < 0 && player.autoShieldPending) {
+      player.autoShieldPending = false;
+      player.autoShieldUsed = true;
+      return false;
+    }
     player.pv = Math.max(0, Math.min(player.maxPv, player.pv + delta));
     checkElimination(state, player);
+    if (!player.autoShieldUsed && !player.autoShieldPending && player.pv > 0 && player.pv <= 5) {
+      player.autoShieldPending = true;
+    }
+    return true;
   }
 
   function checkElimination(state, player) {
@@ -320,8 +337,9 @@
         if (p.id === actorId) continue;
         const { defenseUsed } = yield* reactToDamage(state, p.id, { kind: 'offensif', offensifKind: 'rechauffement' });
         const dmg = defenseUsed ? 0 : 1;
-        changePv(state, p, -dmg);
-        log(state, `${p.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : `perd ${dmg} PV`} (Réchauffement).`);
+        const applied = dmg > 0 ? changePv(state, p, -dmg) : true;
+        const blockedAuto = !defenseUsed && !applied;
+        log(state, `${p.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : (blockedAuto ? 'bloque automatiquement l\'attaque' : `perd ${dmg} PV`)} (Réchauffement).`);
         if (p.eliminated && p.eliminatedTurn === state.turnNumber) {
           yield* handleKill(state, actorId, p.id);
         }
@@ -334,11 +352,13 @@
 
     if (card.kind === 'machette') {
       const dmg = defenseUsed ? 0 : 2;
-      changePv(state, target, -dmg);
-      log(state, `${target.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : `perd ${dmg} PV`}.`);
+      const applied = dmg > 0 ? changePv(state, target, -dmg) : true;
+      const blockedAuto = !defenseUsed && !applied;
+      log(state, `${target.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : (blockedAuto ? 'bloque automatiquement l\'attaque' : `perd ${dmg} PV`)}.`);
     } else if (card.kind === 'pioche_secours') {
       const dmg = defenseUsed ? 0 : 1;
-      changePv(state, target, -dmg);
+      const applied = dmg > 0 ? changePv(state, target, -dmg) : true;
+      const blockedAuto = !defenseUsed && !applied;
       const resCards = target.hand.filter((c) => c.category === 'Ressource');
       let stolen = null;
       if (resCards.length > 0) {
@@ -347,16 +367,18 @@
         actor.hand.push(stolen);
         noteCollectionneurProgress(actor);
       }
-      log(state, `${target.name} ${defenseUsed ? 'bloque les dégâts avec ' + defenseUsed.label : `perd ${dmg} PV`}${stolen ? ` et se fait voler ${stolen.label}` : ''}.`);
+      log(state, `${target.name} ${defenseUsed ? 'bloque les dégâts avec ' + defenseUsed.label : (blockedAuto ? 'bloque automatiquement l\'attaque' : `perd ${dmg} PV`)}${stolen ? ` et se fait voler ${stolen.label}` : ''}.`);
     } else if (card.kind === 'contamination') {
       const stolen = defenseUsed ? 0 : 1;
+      let applied = true;
       if (stolen > 0) {
-        changePv(state, target, -stolen);
-        changePv(state, actor, stolen);
+        applied = changePv(state, target, -stolen);
+        if (applied) changePv(state, actor, stolen);
       }
-      log(state, `${target.name} ${defenseUsed ? 'bloque la Contamination' : `perd 1 PV, volé par ${actor.name}`}.`);
+      const blockedAuto = !defenseUsed && stolen > 0 && !applied;
+      log(state, `${target.name} ${defenseUsed ? 'bloque la Contamination' : (blockedAuto ? 'bloque automatiquement la Contamination' : `perd 1 PV, volé par ${actor.name}`)}.`);
     } else if (card.kind === 'amputation') {
-      changePv(state, target, -2);
+      changePv(state, target, -2, { unblockable: true });
       log(state, `${target.name} subit 2 dégâts d'Amputation (non bloquables).`);
     }
     if (target.eliminated && target.eliminatedTurn === state.turnNumber) {
@@ -499,10 +521,19 @@
         finalDamage = baseDamage;
       }
 
-      changePv(state, victim, -finalDamage);
+      let blockedAuto = false;
+      if (finalDamage > 0) {
+        const applied = changePv(state, victim, -finalDamage);
+        if (!applied) {
+          blockedAuto = true;
+          fullyCancelled = true;
+          finalDamage = 0;
+        }
+      }
       if (bonus > 0) changePv(state, victim, bonus);
 
-      log(state, `${victim.name} ${defenseUsed ? `se défend avec ${defenseUsed.label} — ` : ''}subit ${finalDamage} dégât(s)${bonus ? ` et regagne ${bonus} PV` : ''}.`);
+      const defenseNote = defenseUsed ? `se défend avec ${defenseUsed.label} — ` : (blockedAuto ? 'bloque automatiquement l\'attaque (instinct de survie) — ' : '');
+      log(state, `${victim.name} ${defenseNote}subit ${finalDamage} dégât(s)${bonus ? ` et regagne ${bonus} PV` : ''}.`);
 
       if (!fullyCancelled) {
         applyArchetype(state, victim, archetype);
@@ -581,8 +612,10 @@
         break;
     }
     if (!applied) {
-      changePv(state, victim, -1);
-      log(state, `${victim.name} ne peut pas subir l'archétype secondaire : -1 PV supplémentaire.`);
+      const dmgApplied = changePv(state, victim, -1);
+      log(state, dmgApplied
+        ? `${victim.name} ne peut pas subir l'archétype secondaire : -1 PV supplémentaire.`
+        : `${victim.name} bloque automatiquement ce dégât supplémentaire (instinct de survie).`);
     }
   }
 
