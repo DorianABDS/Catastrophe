@@ -30,6 +30,16 @@
     secheresse: 'Catastrophe : dégâts à tous les autres + blocage Ressource — bloque Sabotage/Offensif ce tour',
   };
 
+  // Icônes par catégorie, en plus de la couleur : aide les daltoniens et réduit la
+  // dépendance au texte français (accessibilité / marché international).
+  const CATEGORY_ICON = {
+    Ressource: '🎒',
+    Defensif: '🛡️',
+    Sabotage: '🗡️',
+    Offensif: '⚔️',
+    Catastrophe: '🌪️',
+  };
+
   let STATE = null;
   let screenOwnerId = null; // qui est actuellement affiché à l'écran (pour gérer le pass-and-play)
 
@@ -195,7 +205,7 @@
     const dupBadge = count > 1 ? `<span class="dup-badge">×${count}</span>` : '';
     return `
       <div class="card cat-${card.category} ${extra && extra.disabled ? 'disabled' : ''}" data-card-id="${card.id}">
-        <div class="cat-tag">${card.category}</div>
+        <div class="cat-tag">${CATEGORY_ICON[card.category] || ''} ${card.category}</div>
         <div class="card-label">${card.label} ${dupBadge}</div>
         <div class="card-desc">${CARD_DESC[card.kind] || ''}</div>
       </div>
