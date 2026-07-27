@@ -35,7 +35,11 @@
 
   // ---------- Mode session (plusieurs parties, score cumulé) ----------
 
-  const SESSION_TARGET_BY_COUNT = { 2: 40, 3: 35, 4: 35, 5: 30, 6: 30, 7: 25, 8: 25 };
+  // Recalibré après l'ajout du bonus de kill (+3 pts/élimination) : ce bonus grandit avec
+  // le nombre de joueurs (plus d'adversaires à éliminer), ce qui compense la baisse du
+  // score en PV vue précédemment — le score moyen du gagnant est donc redevenu quasi plat
+  // (~14 pts) quel que soit l'effectif, au lieu de décroître de 13.5 (2j) à 7.7 (8j).
+  const SESSION_TARGET_BY_COUNT = { 2: 45, 3: 40, 4: 40, 5: 40, 6: 40, 7: 45, 8: 45 };
   let SESSION = null; // { active, target, round, configs, cumulative: [{name, isAI, total}] }
 
   const el = (id) => document.getElementById(id);
@@ -727,7 +731,7 @@
 
   function updateSessionTargetDefault() {
     const count = parseInt(el('player-count').value, 10);
-    el('session-target').value = SESSION_TARGET_BY_COUNT[count] || 30;
+    el('session-target').value = SESSION_TARGET_BY_COUNT[count] || 40;
   }
 
   function startRound(configs) {
@@ -752,7 +756,7 @@
       const configs = collectPlayerConfigs();
       const sessionActive = el('session-mode-toggle').checked;
       if (sessionActive) {
-        const target = parseInt(el('session-target').value, 10) || SESSION_TARGET_BY_COUNT[configs.length] || 30;
+        const target = parseInt(el('session-target').value, 10) || SESSION_TARGET_BY_COUNT[configs.length] || 40;
         SESSION = {
           active: true,
           target,
