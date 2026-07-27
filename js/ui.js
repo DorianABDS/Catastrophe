@@ -57,13 +57,16 @@
     container.innerHTML = '';
     for (let i = 0; i < count; i++) {
       const prev = prevValues[i];
+      // Par défaut, Joueur 1 est Humain et tous les autres sont IA (pratique pour tester
+      // rapidement en solo) ; une valeur déjà choisie par l'utilisateur reste prioritaire.
+      const isAI = prev ? prev.isAI : i > 0;
       const row = document.createElement('div');
       row.className = 'player-config-row';
       row.innerHTML = `
         <input type="text" value="${prev ? prev.name : 'Joueur ' + (i + 1)}" placeholder="Nom">
         <select>
-          <option value="human" ${!prev || !prev.isAI ? 'selected' : ''}>Humain</option>
-          <option value="ai" ${prev && prev.isAI ? 'selected' : ''}>IA</option>
+          <option value="human" ${!isAI ? 'selected' : ''}>Humain</option>
+          <option value="ai" ${isAI ? 'selected' : ''}>IA</option>
         </select>
       `;
       container.appendChild(row);
