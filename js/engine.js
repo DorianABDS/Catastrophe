@@ -42,7 +42,6 @@
       presage: { force: null, weakness: null },
       endCounter: 0,
       currentPlayerIndex: 0,
-      turnDirection: 1,
       turnNumber: 1,
       phase: 'playing',
       log: [],
@@ -631,33 +630,14 @@
     }
   }
 
-  // Ordre en serpentin (1,2,3,4, 4,3,2,1, 1,2,3,4, ...) plutôt qu'un simple tour de table :
-  // un audit sur 15000 parties a montré que le Siège 1 gagnait jusqu'à 2-3x plus souvent que
-  // le dernier siège (il frappe les autres avant qu'ils n'aient eu le moindre tour pour se
-  // défendre). Le serpentin fait qu'aucun siège ne reste éternellement "en dernier" : les
-  // sièges extrêmes (premier et dernier de chaque sens) jouent deux fois de suite au moment
-  // où le sens s'inverse, ce qui compense sur la durée de la partie.
-  function nextSnakeIndex(state) {
-    const n = state.players.length;
-    const idx = state.currentPlayerIndex;
-    const dir = state.turnDirection;
-    if (idx === n - 1 && dir === 1) {
-      state.turnDirection = -1;
-      return idx;
-    }
-    if (idx === 0 && dir === -1) {
-      state.turnDirection = 1;
-      return idx;
-    }
-    return idx + dir;
-  }
-
   function advanceToNextPlayer(state) {
-    const maxSteps = state.players.length * 4 + 4;
-    for (let steps = 0; steps < maxSteps; steps += 1) {
-      const idx = nextSnakeIndex(state);
-      state.currentPlayerIndex = idx;
-      if (!state.players[idx].eliminated) break;
+    player_loop:
+    for (let i = 1; i <= state.players.length; i++) {
+      const idx = (state.currentPlayerIndex + i) % state.players.length;
+      if (!state.players[idx].eliminated) {
+        state.currentPlayerIndex = idx;
+        break player_loop;
+      }
     }
     state.turnNumber += 1;
     const player = getPlayer(state, state.players[state.currentPlayerIndex].id);
