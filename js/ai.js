@@ -1,7 +1,6 @@
 // ai.js — décisions automatiques pour les joueurs "ordinateur"
 (function (root) {
   const Engine = (typeof module !== 'undefined') ? require('./engine.js') : root.CatastropheEngine;
-  const Data = (typeof module !== 'undefined') ? require('./data.js') : root.CatastropheData;
 
   function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
@@ -39,35 +38,6 @@
     const catastrophe = player.hand.filter((c) => c.category === 'Catastrophe');
     const order = [...excessDefensif, ...offensif, ...sabotage, ...ressource, ...keptDefensif, ...catastrophe];
     return order.slice(0, count).map((c) => c.id);
-  }
-
-  // Tentative de Verdict : deviner le secret d'une victime.
-  // Un joueur attentif exclut son propre secret (unique parmi les 9 cartes) et les
-  // secrets déjà révélés publiquement lors de Verdicts précédents — la seule déduction
-  // réellement disponible sans lire dans le jeu d'autrui. Plus le bassin restant est
-  // petit, plus la tentative est rentable (gain +10 / perte -5).
-  function aiVerdictGuess(state, victimId, guesserId) {
-    const guesser = guesserId ? Engine.getPlayer(state, guesserId) : null;
-    const revealed = new Set(state.players.filter((p) => p.secretRevealed).map((p) => p.secret));
-    if (guesser) revealed.add(guesser.secret);
-    const pool = Data.SECRETS.map((s) => s.id).filter((id) => !revealed.has(id));
-    const candidates = pool.length ? pool : Data.SECRETS.map((s) => s.id);
-    // Barème +10 / -5 : le seuil de rentabilité tombe à 1 chance sur 3 (33%) au lieu
-    // de 1 sur 2. Reste aussi joueur que l'ancien réglage (tentative ~45% en moyenne,
-    // pour que le Verdict continue d'arriver en jeu) mais mieux informé : la
-    // probabilité monte quand le bassin de secrets restants est petit (déduction
-    // fiable) et descend légèrement sinon, au lieu d'un simple tirage à l'aveugle.
-    const n = candidates.length;
-    let attemptChance;
-    if (n <= 1) attemptChance = 0.8;
-    else if (n === 2) attemptChance = 0.65;
-    else if (n === 3) attemptChance = 0.55;
-    else if (n === 4) attemptChance = 0.5;
-    else if (n === 5) attemptChance = 0.45;
-    else if (n === 6) attemptChance = 0.4;
-    else attemptChance = 0.35;
-    if (Math.random() < attemptChance) return pick(candidates);
-    return null;
   }
 
   // Construit la liste des actions jouées par l'IA pour un tour normal.
@@ -165,7 +135,7 @@
     return plan;
   }
 
-  const AI = { aiChooseDefense, aiChooseSteal, aiChooseExcessDiscard, aiVerdictGuess, aiPlanTurn };
+  const AI = { aiChooseDefense, aiChooseSteal, aiChooseExcessDiscard, aiPlanTurn };
 
   if (typeof module !== 'undefined') module.exports = AI;
   else root.CatastropheAI = AI;

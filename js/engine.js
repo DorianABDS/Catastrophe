@@ -1,5 +1,5 @@
 // engine.js — moteur de règles, sans dépendance DOM.
-// Les flux de jeu complexes (réactions défensives, verdict) sont des fonctions génératrices :
+// Les flux de jeu complexes (réactions défensives, butin de kill) sont des fonctions génératrices :
 // elles `yield` une description d'interaction requise et reprennent avec la réponse fournie
 // via gen.next(response). L'UI pilote la boucle (voir ui.js / runFlow).
 
@@ -66,8 +66,6 @@
         maxPv: 15,
         hand: [],
         secret: secret.kind,
-        secretRevealed: false,
-        secretCancelled: false,
         eliminated: false,
         eliminatedTurn: null,
         bonusScore: 0,
@@ -256,8 +254,8 @@
         log(state, `${player.name} joue Provisions d'urgence (pioche 3 cartes).`);
         break;
       case 'sursis':
-        changePv(state, player, 3);
-        log(state, `${player.name} joue Sursis (+3 PV).`);
+        changePv(state, player, card.amount);
+        log(state, `${player.name} joue Sursis (+${card.amount} PV).`);
         break;
       default:
         break;
@@ -518,24 +516,9 @@
     state.endCounter = Math.min(MAX_END_COUNTER, state.endCounter + 1);
     log(state, `Compteur de fin de partie : ${state.endCounter}/${MAX_END_COUNTER}.`);
 
-    // Butin + bonus de kill, puis Le Verdict
+    // Butin + bonus de kill
     for (const victim of eliminatedThisResolution) {
       yield* handleKill(state, actorId, victim.id);
-      const response = yield { type: 'verdict', catastropherId: actorId, victimId: victim.id };
-      if (response && response.guess) {
-        const correct = victim.secret === response.guess;
-        if (correct) {
-          actor.bonusScore += 10;
-          victim.secretCancelled = true;
-          victim.secretRevealed = true;
-          log(state, `${actor.name} devine juste le secret de ${victim.name} (${secretLabel(victim.secret)}) : +10, secret annulé.`);
-        } else {
-          actor.bonusScore -= 5;
-          log(state, `${actor.name} se trompe sur le secret de ${victim.name} : -5.`);
-        }
-      } else {
-        log(state, `${actor.name} ne tente rien sur le secret de ${victim.name}.`);
-      }
     }
 
     checkEndConditions(state);
@@ -699,13 +682,13 @@
     }
   }
 
-  // Score final = PV restants (0 si éliminé) + secret rempli + Verdict.
+  // Score final = PV restants (0 si éliminé) + secret rempli + bonus de kill.
   // Ni le simple fait d'être vivant, ni les cartes Ressource non jouées, ne rapportent
   // de points en soi : les PV restants reflètent déjà combien on a survécu.
   function computeFinalScores(state) {
     return state.players.map((player) => {
       const pvBonus = player.eliminated ? 0 : player.pv;
-      const secretDone = !player.secretCancelled && evaluateSecret(state, player);
+      const secretDone = evaluateSecret(state, player);
       const secretBonus = secretDone ? 5 : 0;
       const total = pvBonus + secretBonus + player.bonusScore;
       return {
@@ -715,7 +698,7 @@
         pvBonus,
         secretBonus,
         secretDone,
-        verdictBonus: player.bonusScore,
+        killBonus: player.bonusScore,
         total,
       };
     });

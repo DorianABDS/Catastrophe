@@ -72,7 +72,7 @@
     push('Ressource', 'entraide', 'Entraide', 8, { amount: 1, choosable: true });
     push('Ressource', 'ravitaillement', 'Ravitaillement', 4, { draw: 2 });
     push('Ressource', 'provisions_urgence', "Provisions d'urgence", 2, { draw: 3 });
-    push('Ressource', 'sursis', 'Sursis', 6, { amount: 3, requiresLowPv: 5 });
+    push('Ressource', 'sursis', 'Sursis', 6, { amount: 4, requiresLowPv: 3 });
 
     // Défensif (24)
     push('Defensif', 'digue', 'Digue', 4, { counters: 'tsunami' });
