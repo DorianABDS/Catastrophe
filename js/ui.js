@@ -78,6 +78,15 @@
     }));
   }
 
+  // Équivalent numérique du tirage des jetons "ordre de jeu" : désigne au hasard qui
+  // commence, le reste de la table suivant ensuite l'ordre normal (comme autour d'une
+  // vraie table). Seulement pour la 1ère partie/manche — les manches suivantes d'une
+  // session tournent ensuite vers la gauche (déjà géré par la rotation des configs).
+  function randomRotateStart(arr) {
+    const r = Math.floor(Math.random() * arr.length);
+    return arr.slice(r).concat(arr.slice(0, r));
+  }
+
   function showScreen(id) {
     ['screen-setup', 'screen-gate', 'screen-game', 'screen-end'].forEach((s) => {
       el(s).classList.toggle('hidden', s !== id);
@@ -752,7 +761,7 @@
       el('session-target-label').classList.toggle('hidden', !e.target.checked);
     });
     el('btn-start-game').addEventListener('click', () => {
-      const configs = collectPlayerConfigs();
+      const configs = randomRotateStart(collectPlayerConfigs());
       const sessionActive = el('session-mode-toggle').checked;
       if (sessionActive) {
         const target = parseInt(el('session-target').value, 10) || SESSION_TARGET_DEFAULT;
