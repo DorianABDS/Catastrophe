@@ -179,9 +179,6 @@ h1, h2, h3 { margin-top: 0; }
 .player-tile.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent) inset; }
 .player-tile.eliminated { opacity: 0.45; }
 .player-tile .name { font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
-.player-tile .cible-badge { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: var(--panel-2); color: var(--text-dim); }
-.player-tile .cible-badge.premiere { background: #7a2b2b; color: #ffd9d9; }
-.player-tile .cible-badge.seconde { background: #274a7a; color: #d9e8ff; }
 .hp-bar-track {
   height: 10px;
   background: var(--panel-2);

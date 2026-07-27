@@ -144,11 +144,9 @@
       tile.className = 'player-tile' + (p.eliminated ? ' eliminated' : '') + (p.id === STATE.players[STATE.currentPlayerIndex].id ? ' active' : '');
       const pct = Math.round((p.pv / p.maxPv) * 100);
       const barClass = pct <= 30 ? 'low' : (pct <= 60 ? 'mid' : '');
-      const cibleClass = p.cible === 'premiere' ? 'premiere' : (p.cible === 'seconde' ? 'seconde' : '');
       tile.innerHTML = `
         <div class="name">
           <span>${p.name}${p.isAI ? ' <span class="ai-tag">(IA)</span>' : ''}</span>
-          <span class="cible-badge ${cibleClass}">${Engine.cibleLabel(p.cible)}</span>
         </div>
         <div class="hp-bar-track"><div class="hp-bar-fill ${barClass}" style="width:${pct}%"></div></div>
         <div class="hp-text">${p.pv} / ${p.maxPv} PV${p.eliminated ? ' — éliminé' : ''}</div>
@@ -201,6 +199,8 @@
         response = await handleVerdict(inter);
       } else if (inter.type === 'discardExcess') {
         response = await handleDiscardExcess(inter);
+      } else if (inter.type === 'chooseKillLoot') {
+        response = await handleKillLoot(inter);
       } else if (inter.type === 'log') {
         render();
       }
@@ -348,6 +348,31 @@
           const id = cardEl.getAttribute('data-card-id');
           closeModal();
           resolve(id);
+        });
+      });
+    });
+  }
+
+  // Kill loot : quand une élimination est causée par Offensif ou Catastrophe, l'auteur du
+  // coup fatal choisit une carte à récupérer dans la main de la victime (s'il en reste).
+  async function handleKillLoot(inter) {
+    const actor = Engine.getPlayer(STATE, inter.actorId);
+    const victim = Engine.getPlayer(STATE, inter.victimId);
+    if (actor.isAI) {
+      return { cardId: AI.aiChooseSteal(victim) };
+    }
+    render();
+    return new Promise((resolve) => {
+      openModal(`
+        <h2>Butin</h2>
+        <p>${actor.name}, vous avez éliminé ${victim.name}. Choisissez une carte à récupérer sur sa dépouille.</p>
+        <div class="hand-row">${(() => { const counts = countByKind(victim.hand); return victim.hand.map((c) => cardHtml(c, { count: counts[c.kind] })).join(''); })()}</div>
+      `);
+      el('modal-box').querySelectorAll('.card').forEach((cardEl) => {
+        cardEl.addEventListener('click', () => {
+          const id = cardEl.getAttribute('data-card-id');
+          closeModal();
+          resolve({ cardId: id });
         });
       });
     });
@@ -649,7 +674,7 @@
       <p style="font-size:13px; color: var(--text-dim, #9aa5b3);">Seul un survivant peut remporter la partie (sauf si personne n'a survécu).</p>
       <table>
         <thead>
-          <tr><th>Joueur</th><th>Secret</th><th>PV</th><th>Secret rempli</th><th>Verdict</th><th>Total</th></tr>
+          <tr><th>Joueur</th><th>Secret</th><th>PV</th><th>Secret rempli</th><th>Verdict + Kills</th><th>Total</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>

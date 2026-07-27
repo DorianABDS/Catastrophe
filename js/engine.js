@@ -7,12 +7,13 @@
   const D = (typeof module !== 'undefined') ? require('./data.js') : root.CatastropheData;
   const {
     CATASTROPHE_KINDS, SPECIFIC_DEFENSE, ARCHETYPE_BY_CATASTROPHE, SECRETS,
-    buildMainDeck, buildPresageDeck, buildCibleDeck, buildSecretDeck, shuffle,
+    buildMainDeck, buildPresageDeck, buildSecretDeck, shuffle,
   } = D;
 
   const MAX_END_COUNTER = 8;
   const MAX_HAND = 5;
   const TURN_BUDGET = 4;
+  const KILL_BONUS = 3;
 
   function log(state, message, extra) {
     state.log.push(Object.assign({ turn: state.turnNumber, message }, extra || {}));
@@ -32,7 +33,6 @@
     const rand = rng || Math.random;
     const mainDeck = shuffle(buildMainDeck(), rand);
     const presageDeck = shuffle(buildPresageDeck(), rand);
-    const cibleDeck = shuffle(buildCibleDeck(playerConfigs.length), rand);
     const secretDeck = shuffle(buildSecretDeck(), rand);
 
     const state = {
@@ -40,7 +40,6 @@
       mainDeck,
       discardPile: [],
       presage: { force: null, weakness: null },
-      cibleHolders: { premiere: null, seconde: null },
       endCounter: 0,
       currentPlayerIndex: 0,
       turnNumber: 1,
@@ -58,7 +57,6 @@
     log(state, `Le Présage révèle : Force = ${drawnPresage[0].label}, Faiblesse = ${drawnPresage[1].label}.`);
 
     playerConfigs.forEach((cfg, idx) => {
-      const cible = cibleDeck[idx];
       const secret = secretDeck[idx];
       const player = {
         id: 'p' + idx,
@@ -67,7 +65,6 @@
         pv: 15,
         maxPv: 15,
         hand: [],
-        cible: cible.kind,
         secret: secret.kind,
         secretRevealed: false,
         secretCancelled: false,
@@ -82,28 +79,14 @@
           sabotageTargets: new Set(),
           sabotagePlaysTotal: 0,
           entraideOnOthers: 0,
-          minPvEver: 15,
           sabotagedEver: false,
           sabotagedCount: 0,
-          vautour: null,
           collectionneurAchieved: false,
+          defensifBlocks: 0,
+          eliminationsCaused: 0,
         },
       };
-      if (cible.kind === 'premiere') state.cibleHolders.premiere = player.id;
-      if (cible.kind === 'seconde') state.cibleHolders.seconde = player.id;
       state.players.push(player);
-    });
-
-    // Cibles révélées publiquement (déjà en clair dans player.cible)
-    state.players.forEach((p) => {
-      log(state, `${p.name} révèle sa carte Cible : ${cibleLabel(p.cible)}.`);
-    });
-
-    // Initialise le suivi Vautour maintenant que les cibleHolders sont connus
-    state.players.forEach((p) => {
-      if (p.secret === 'vautour') {
-        p.stats.vautour = { target: vautourPrimaryTarget(state, p), achieved: new Set(), switched: false };
-      }
     });
 
     // Main de départ : 3 cartes
@@ -113,18 +96,6 @@
 
     resetTurnBudget(state);
     return state;
-  }
-
-  function cibleLabel(kind) {
-    if (kind === 'premiere') return 'Première Cible';
-    if (kind === 'seconde') return 'Seconde Cible';
-    return 'Cible neutre';
-  }
-
-  function vautourPrimaryTarget(state, player) {
-    if (player.cible === 'premiere') return state.cibleHolders.seconde;
-    if (player.cible === 'seconde') return state.cibleHolders.premiere;
-    return state.cibleHolders.premiere;
   }
 
   // ---------- Pioche / défausse ----------
@@ -179,15 +150,8 @@
     return card;
   }
 
-  function updateMinPv(player) {
-    if (player.pv < player.stats.minPvEver) {
-      player.stats.minPvEver = player.pv;
-    }
-  }
-
   function changePv(state, player, delta) {
     player.pv = Math.max(0, Math.min(player.maxPv, player.pv + delta));
-    updateMinPv(player);
     checkElimination(state, player);
   }
 
@@ -346,6 +310,9 @@
         const dmg = defenseUsed ? 0 : 1;
         changePv(state, p, -dmg);
         log(state, `${p.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : `perd ${dmg} PV`} (Réchauffement).`);
+        if (p.eliminated && p.eliminatedTurn === state.turnNumber) {
+          yield* handleKill(state, actorId, p.id);
+        }
       }
       checkEndConditions(state);
       return;
@@ -379,6 +346,9 @@
     } else if (card.kind === 'amputation') {
       changePv(state, target, -2);
       log(state, `${target.name} subit 2 dégâts d'Amputation (non bloquables).`);
+    }
+    if (target.eliminated && target.eliminatedTurn === state.turnNumber) {
+      yield* handleKill(state, actorId, target.id);
     }
     checkEndConditions(state);
   }
@@ -449,6 +419,28 @@
     return card;
   }
 
+  // Éliminer un adversaire (Offensif ou Catastrophe) rapporte un bonus de points et permet
+  // de récupérer une carte de son choix dans la main de la victime (générateur : yield
+  // 'chooseKillLoot' si la victime a encore des cartes en main).
+  function* handleKill(state, actorId, victimId) {
+    const actor = getPlayer(state, actorId);
+    const victim = getPlayer(state, victimId);
+    actor.stats.eliminationsCaused += 1;
+    actor.bonusScore += KILL_BONUS;
+    log(state, `${actor.name} a éliminé ${victim.name} : +${KILL_BONUS} points.`);
+    if (victim.hand.length > 0) {
+      const response = yield { type: 'chooseKillLoot', actorId, victimId, options: victim.hand.map((c) => c.id) };
+      const cardId = response && response.cardId;
+      const idx = cardId ? victim.hand.findIndex((c) => c.id === cardId) : -1;
+      if (idx !== -1) {
+        const [card] = victim.hand.splice(idx, 1);
+        actor.hand.push(card);
+        noteCollectionneurProgress(actor);
+        log(state, `${actor.name} récupère ${card.label} sur la dépouille de ${victim.name}.`);
+      }
+    }
+  }
+
   // ---------- Résolution d'une Catastrophe (générateur) ----------
 
   // Une Catastrophe se joue directement pendant le tour normal d'un joueur (plus de
@@ -488,6 +480,7 @@
 
     for (const victim of victims) {
       const { defenseUsed } = yield* reactToDamage(state, victim.id, { kind: 'catastrophe', catastropheKind: kind });
+      if (defenseUsed) victim.stats.defensifBlocks += 1;
       let finalDamage;
       let bonus = 0;
       let fullyCancelled = false;
@@ -524,8 +517,9 @@
     state.endCounter = Math.min(MAX_END_COUNTER, state.endCounter + 1);
     log(state, `Compteur de fin de partie : ${state.endCounter}/${MAX_END_COUNTER}.`);
 
-    // Le Verdict
+    // Butin + bonus de kill, puis Le Verdict
     for (const victim of eliminatedThisResolution) {
+      yield* handleKill(state, actorId, victim.id);
       const response = yield { type: 'verdict', catastropherId: actorId, victimId: victim.id };
       if (response && response.guess) {
         const correct = victim.secret === response.guess;
@@ -595,7 +589,6 @@
       case 'cicatrice':
         victim.maxPv = Math.max(0, victim.maxPv - 1);
         victim.pv = Math.min(victim.pv, victim.maxPv);
-        updateMinPv(victim);
         checkElimination(state, victim);
         log(state, `${victim.name} subit une cicatrice permanente : PV max = ${victim.maxPv} (Volcan).`);
         applied = true;
@@ -606,46 +599,13 @@
     if (!applied) {
       changePv(state, victim, -1);
       log(state, `${victim.name} ne peut pas subir l'archétype secondaire : -1 PV supplémentaire.`);
-    } else {
-      registerArchetypeEvent(state, victim.id, archetype);
     }
-  }
-
-  function registerArchetypeEvent(state, victimId, archetype) {
-    state.players.forEach((p) => {
-      if (p.secret === 'vautour' && p.stats.vautour && !p.eliminated) {
-        const v = p.stats.vautour;
-        if (v.target === victimId) {
-          v.achieved.add(archetype);
-        }
-      }
-    });
-  }
-
-  // Appelé quand un joueur est éliminé, pour gérer le repli du Vautour sur l'autre cible
-  function handleVautourFallback(state) {
-    state.players.forEach((p) => {
-      if (p.secret === 'vautour' && p.stats.vautour && !p.switchedResolved) {
-        const v = p.stats.vautour;
-        const targetPlayer = getPlayer(state, v.target);
-        if (targetPlayer && targetPlayer.eliminated && v.achieved.size < 4 && !v.switched) {
-          const fallback = v.target === state.cibleHolders.premiere ? state.cibleHolders.seconde : state.cibleHolders.premiere;
-          if (fallback && fallback !== v.target) {
-            v.target = fallback;
-            v.achieved = new Set();
-            v.switched = true;
-            log(state, `${p.name} (Vautour) reporte sa cible réelle, compteur d'archétypes remis à 0.`);
-          }
-        }
-      }
-    });
   }
 
   // ---------- Fin de tour (générateur) ----------
 
   function* normalEndOfTurn(state, playerId) {
     const player = getPlayer(state, playerId);
-    handleVautourFallback(state);
     if (player.skipNextDraw) {
       player.skipNextDraw = false;
       yield { type: 'log', message: `${player.name} ne pioche pas (Coupure).` };
@@ -713,14 +673,19 @@
         const requiredTargets = Math.min(3, state.players.length - 1);
         return player.stats.sabotageTargets.size >= requiredTargets && player.stats.sabotagePlaysTotal >= 3;
       }
-      case 'vautour':
-        return !!(player.stats.vautour && player.stats.vautour.achieved.size >= 4);
+      case 'fossoyeur': {
+        // À 2 joueurs, "causer 2 éliminations" est impossible (un seul adversaire à
+        // éliminer, et la partie s'arrête dès qu'il ne reste qu'un survivant) : le
+        // nombre requis s'adapte donc à l'effectif, comme pour Le Traqueur.
+        const requiredKills = Math.min(2, state.players.length - 1);
+        return player.stats.eliminationsCaused >= requiredKills;
+      }
       case 'bienfaiteur':
         return player.stats.entraideOnOthers >= 2;
       case 'collectionneur':
         return player.stats.collectionneurAchieved;
-      case 'resilient':
-        return player.stats.minPvEver >= 5;
+      case 'bouclier':
+        return player.stats.defensifBlocks >= 3;
       case 'insaisissable': {
         // Tolérance qui décroît avec le nombre de joueurs : à faible effectif, toute la
         // pression Sabotage se concentre sur un seul adversaire (un seuil fixe rendait le
@@ -757,7 +722,7 @@
 
   const Engine = {
     MAX_END_COUNTER, MAX_HAND, TURN_BUDGET,
-    initGame, activePlayers, getPlayer, cibleLabel, secretLabel,
+    initGame, activePlayers, getPlayer, secretLabel,
     canPlayCategory, playResourceCard, playOffensiveCard, playSabotageCard,
     resolveForcedDiscard, resolveDetournementSteal, playCatastropheCard, usableDefenseCards,
     normalEndOfTurn, advanceToNextPlayer,

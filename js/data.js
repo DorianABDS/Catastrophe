@@ -38,10 +38,10 @@
     { id: 'bastion', label: 'Le Bastion', desc: 'Avoir strictement plus de PV que tous les autres à la fin.' },
     { id: 'semeur', label: 'Le Semeur', desc: 'Avoir joué au moins 3 cartes Catastrophe personnellement.' },
     { id: 'traqueur', label: 'Le Traqueur', desc: "Avoir joué au moins 3 cartes Sabotage au total, en touchant autant d'adversaires différents que possible (jusqu'à 3)." },
-    { id: 'vautour', label: 'Le Vautour', desc: "Sa cible réelle (selon sa carte Cible) a été touchée par les 4 archétypes différents." },
+    { id: 'fossoyeur', label: 'Le Fossoyeur', desc: "Avoir personnellement causé l'élimination d'au moins 2 joueurs (via une carte Offensif ou une Catastrophe), ou 1 seul à 2 joueurs." },
     { id: 'bienfaiteur', label: 'Le Bienfaiteur', desc: "Avoir joué Entraide sur un autre joueur au moins 2 fois." },
     { id: 'collectionneur', label: 'Le Collectionneur', desc: 'Avoir eu simultanément 1 Provisions + 1 Entraide non joués en main, à un moment de la partie.' },
-    { id: 'resilient', label: 'Le Résilient', desc: "N'être jamais descendu en dessous de 5 points de vie." },
+    { id: 'bouclier', label: 'Le Bouclier', desc: "Avoir annulé ou réduit des dégâts de Catastrophe avec une carte Défensif au moins 3 fois." },
     { id: 'insaisissable', label: "L'Insaisissable", desc: "Avoir été touché par une carte Sabotage au plus (6 - nombre de joueurs, minimum 1) fois pendant toute la partie." },
   ];
 
@@ -111,22 +111,6 @@
     }));
   }
 
-  // Le paquet Cible physique compte 8 cartes (6 neutres + Première + Seconde),
-  // mais on ne distribue que `numPlayers` d'entre elles : on retire donc des neutres
-  // en trop avant de mélanger, pour garantir que Première et Seconde Cible sont
-  // toujours en jeu (sans quoi Le Vautour peut se retrouver sans cible réelle).
-  function buildCibleDeck(numPlayers) {
-    const blancheCount = Math.max(0, Math.min(6, (numPlayers || 8) - 2));
-    const counter = { n: 0 };
-    const deck = [];
-    for (let i = 0; i < blancheCount; i++) {
-      deck.push({ id: buildCardId(counter, 'cible_blanche'), kind: 'blanche', label: 'Cible neutre' });
-    }
-    deck.push({ id: buildCardId(counter, 'cible_premiere'), kind: 'premiere', label: 'Première Cible' });
-    deck.push({ id: buildCardId(counter, 'cible_seconde'), kind: 'seconde', label: 'Seconde Cible' });
-    return deck;
-  }
-
   function buildSecretDeck() {
     return SECRETS.map((s) => ({ id: 'secret_' + s.id, kind: s.id, label: s.label }));
   }
@@ -143,7 +127,7 @@
 
   const CatastropheDataExports = {
     CATASTROPHE_KINDS, CATASTROPHE_LABELS, SPECIFIC_DEFENSE, ARCHETYPE_BY_CATASTROPHE,
-    ARCHETYPE_LABELS, SECRETS, buildMainDeck, buildPresageDeck, buildCibleDeck, buildSecretDeck, shuffle,
+    ARCHETYPE_LABELS, SECRETS, buildMainDeck, buildPresageDeck, buildSecretDeck, shuffle,
   };
 
   if (typeof module !== 'undefined') {
