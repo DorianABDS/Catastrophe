@@ -100,9 +100,10 @@
     // objectif n'est pas rempli ; sinon elle reste un dernier recours.
     if (!player.blockRessourceNextTurn) {
       const resCards = hasCategory('Ressource');
-      // Sursis n'est jouable qu'à 5 PV ou moins (règle du moteur) : on l'exclut des
-      // options tant que ce n'est pas le cas, pour ne jamais tenter un coup invalide.
-      const selfHealCards = resCards.filter((c) => c.kind !== 'entraide' && (c.kind !== 'sursis' || player.pv <= 5));
+      // Sursis n'est jouable qu'en dessous du seuil imprimé sur la carte (règle du
+      // moteur) : on l'exclut des options tant que ce n'est pas le cas, pour ne jamais
+      // tenter un coup invalide.
+      const selfHealCards = resCards.filter((c) => c.kind !== 'entraide' && (c.kind !== 'sursis' || player.pv <= c.requiresLowPv));
       const entraideCard = resCards.find((c) => c.kind === 'entraide');
       const weakestOther = others.length > 0 ? others.slice().sort((a, b) => a.pv - b.pv)[0] : null;
 
@@ -117,7 +118,7 @@
       } else if (selfHealCards.length > 0) {
         const chosen = player.pv <= 5
           ? (selfHealCards.find((c) => c.kind === 'sursis') || selfHealCards.find((c) => c.kind === 'provisions') || selfHealCards.find((c) => c.kind === 'renfort') || selfHealCards[0])
-          : (selfHealCards.find((c) => c.kind === 'provisions_urgence') || selfHealCards.find((c) => c.kind === 'ravitaillement') || selfHealCards[0]);
+          : (selfHealCards.find((c) => c.kind === 'sursis') || selfHealCards.find((c) => c.kind === 'provisions_urgence') || selfHealCards.find((c) => c.kind === 'ravitaillement') || selfHealCards[0]);
         plan.resource = { cardId: chosen.id };
         plays += 1;
       } else if (entraideCard && weakestOther) {
