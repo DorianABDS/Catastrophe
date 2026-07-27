@@ -14,7 +14,18 @@
   const MAX_HAND = 5;
   const TURN_BUDGET = 4;
   const KILL_BONUS = 3;
-  const SURVIVAL_BONUS = 8;
+  // Podium de survie : le score ne dépend plus des PV en continu (un survivant à 14 PV
+  // n'écrase plus un survivant à 2 PV), mais une bonne santé finale reste récompensée
+  // par palier plutôt qu'à l'unité de PV près.
+  const SURVIVAL_TIERS = [
+    { max: 5, bonus: 6 },   // in extremis
+    { max: 10, bonus: 8 },  // stable
+    { max: Infinity, bonus: 10 }, // en pleine forme
+  ];
+
+  function survivalTierBonus(pv) {
+    return SURVIVAL_TIERS.find((t) => pv <= t.max).bonus;
+  }
 
   function log(state, message, extra) {
     state.log.push(Object.assign({ turn: state.turnNumber, message }, extra || {}));
@@ -721,7 +732,7 @@
   // de points en soi : les PV restants reflètent déjà combien on a survécu.
   function computeFinalScores(state) {
     return state.players.map((player) => {
-      const survivalBonus = player.eliminated ? 0 : SURVIVAL_BONUS;
+      const survivalBonus = player.eliminated ? 0 : survivalTierBonus(player.pv);
       const secretDone = evaluateSecret(state, player);
       const secretBonus = secretDone ? 5 : 0;
       const total = survivalBonus + secretBonus + player.bonusScore;
