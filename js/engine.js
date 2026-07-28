@@ -251,10 +251,19 @@
       if (!target || target.eliminated) {
         return { ok: false, reason: 'Cible invalide pour Entraide.' };
       }
+      if (target.pv >= target.maxPv) {
+        return { ok: false, reason: `${target.name} a déjà le maximum de PV.` };
+      }
     }
 
     if (card.kind === 'sursis' && player.pv > card.requiresLowPv) {
       return { ok: false, reason: `Sursis n'est jouable qu'à ${card.requiresLowPv} PV ou moins.` };
+    }
+
+    // Renfort/Provisions soignent le joueur lui-même : inutile (et donc interdit, pour
+    // ne jamais gâcher la carte) si ses PV sont déjà au maximum.
+    if ((card.kind === 'renfort' || card.kind === 'provisions') && player.pv >= player.maxPv) {
+      return { ok: false, reason: `${card.label} est inutile : vos PV sont déjà au maximum.` };
     }
 
     discardCard(state, player, cardId);

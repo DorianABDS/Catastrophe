@@ -402,11 +402,14 @@
         if (card.category === 'Ressource' && player.blockRessourceNextTurn) {
           return { ok: false, reason: 'Sécheresse : Ressource interdite ce tour.' };
         }
-        if (card.category === 'Ressource' && card.kind === 'entraide' && Engine.activePlayers(STATE).filter((p) => p.id !== player.id).length === 0) {
-          return { ok: false, reason: 'Aucun autre joueur actif à qui venir en aide.' };
+        if (card.category === 'Ressource' && card.kind === 'entraide' && Engine.activePlayers(STATE).filter((p) => p.id !== player.id && p.pv < p.maxPv).length === 0) {
+          return { ok: false, reason: 'Aucun autre joueur actif à qui venir en aide (déjà au maximum de PV).' };
         }
         if (card.kind === 'sursis' && player.pv > card.requiresLowPv) {
           return { ok: false, reason: `Jouable uniquement à ${card.requiresLowPv} PV ou moins.` };
+        }
+        if ((card.kind === 'renfort' || card.kind === 'provisions') && player.pv >= player.maxPv) {
+          return { ok: false, reason: 'Inutile : vos PV sont déjà au maximum.' };
         }
         return Engine.canPlayCategory(STATE, card.category);
       }

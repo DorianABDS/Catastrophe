@@ -73,9 +73,15 @@
       // Sursis n'est jouable qu'en dessous du seuil imprimé sur la carte (règle du
       // moteur) : on l'exclut des options tant que ce n'est pas le cas, pour ne jamais
       // tenter un coup invalide.
-      const selfHealCards = resCards.filter((c) => c.kind !== 'entraide' && (c.kind !== 'sursis' || player.pv <= c.requiresLowPv));
+      const selfHealCards = resCards.filter((c) => {
+        if (c.kind === 'entraide') return false;
+        if (c.kind === 'sursis') return player.pv <= c.requiresLowPv;
+        if (c.kind === 'renfort' || c.kind === 'provisions') return player.pv < player.maxPv;
+        return true;
+      });
       const entraideCard = resCards.find((c) => c.kind === 'entraide');
-      const weakestOther = others.length > 0 ? others.slice().sort((a, b) => a.pv - b.pv)[0] : null;
+      const healableOthers = others.filter((o) => o.pv < o.maxPv);
+      const weakestOther = healableOthers.length > 0 ? healableOthers.slice().sort((a, b) => a.pv - b.pv)[0] : null;
 
       if (
         entraideCard && weakestOther
