@@ -23,7 +23,7 @@
     pioche_secours: '1 dégât + vole 1 carte Ressource',
     contamination: 'Vole 1 PV (vous le gagnez)',
     amputation: '2 dégâts, ignore le Kit de secours',
-    rechauffement: 'Tous les autres joueurs perdent 1 PV',
+    chaos: 'Tous les autres joueurs perdent 2 PV',
     volcan: 'Catastrophe : dégâts à tous les autres + cicatrice — bloque Sabotage/Offensif ce tour',
     tsunami: 'Catastrophe : dégâts à tous les autres + blocage Défensif — bloque Sabotage/Offensif ce tour',
     seisme: 'Catastrophe : dégâts à tous les autres + perte de carte — bloque Sabotage/Offensif ce tour',

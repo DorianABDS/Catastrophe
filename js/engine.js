@@ -298,7 +298,7 @@
   // ---------- Défense réactive (générateur) ----------
 
   // Kit de secours annule totalement les dégâts de ces 3 cartes Offensif (jamais les
-  // Catastrophes, ni Amputation, ni Réchauffement) : ça lui donne un rôle propre et
+  // Catastrophes, ni Amputation, ni Chaos) : ça lui donne un rôle propre et
   // distinct des contres Défensif spécifiques (qui ne visent que les Catastrophes).
   const KIT_SECOURS_BLOCKS = ['machette', 'pioche_secours', 'contamination'];
 
@@ -348,14 +348,14 @@
     registerPlay(state, 'Offensif');
     log(state, `${actor.name} joue ${card.label} sur ${target.name}.`);
 
-    if (card.kind === 'rechauffement') {
+    if (card.kind === 'chaos') {
       for (const p of activePlayers(state)) {
         if (p.id === actorId) continue;
-        const { defenseUsed } = yield* reactToDamage(state, p.id, { kind: 'offensif', offensifKind: 'rechauffement' });
-        const dmg = defenseUsed ? 0 : 1;
+        const { defenseUsed } = yield* reactToDamage(state, p.id, { kind: 'offensif', offensifKind: 'chaos' });
+        const dmg = defenseUsed ? 0 : 2;
         const applied = dmg > 0 ? changePv(state, p, -dmg, { blockable: true }) : true;
         const blockedAuto = !defenseUsed && !applied;
-        log(state, `${p.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : (blockedAuto ? 'bloque automatiquement l\'attaque' : `perd ${dmg} PV`)} (Réchauffement).`);
+        log(state, `${p.name} ${defenseUsed ? 'bloque avec ' + defenseUsed.label : (blockedAuto ? 'bloque automatiquement l\'attaque' : `perd ${dmg} PV`)} (Chaos).`);
         if (p.eliminated && p.eliminatedTurn === state.turnNumber) {
           yield* handleKill(state, actorId, p.id);
         }

@@ -91,7 +91,7 @@
     push('Offensif', 'pioche_secours', 'Pioche de secours', 7, { damage: 1, stealResource: true });
     push('Offensif', 'contamination', 'Contamination', 6, { stealResistance: 1 });
     push('Offensif', 'amputation', 'Amputation', 4, { damage: 2, ignoresKit: true });
-    push('Offensif', 'rechauffement', 'Réchauffement climatique', 3, { damageAll: 1 });
+    push('Offensif', 'chaos', 'Chaos', 3, { damageAll: 2 });
 
     // Catastrophe (16) — jouable directement en tour normal, plus de carte Colère
     CATASTROPHE_KINDS.forEach((k) => {
