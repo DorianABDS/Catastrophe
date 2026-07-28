@@ -18,7 +18,7 @@
     kit_secours: 'Annule les dégâts de Machette, Pioche de secours ou Contamination',
     pillage: 'Vole 1 carte au hasard à un adversaire',
     coupure: 'L\'adversaire ne pioche pas au prochain tour',
-    detournement: 'Vous choisissez et volez une carte dans la main de la cible',
+    quarantaine: "La cible ne peut jouer aucune carte Offensif à son prochain tour",
     machette: '2 dégâts directs',
     pioche_secours: '1 dégât + vole 1 carte Ressource',
     contamination: 'Vole 1 PV (vous le gagnez)',
@@ -300,30 +300,6 @@
     });
   }
 
-  // Détournement : c'est l'ACTEUR (celui qui a joué la carte), pas la cible, qui choisit
-  // quelle carte voler dans la main de la cible — il faut donc la lui montrer.
-  async function handleDetournementSteal(actor, target) {
-    if (actor.isAI) {
-      return AI.aiChooseSteal(target);
-    }
-    // Pas de gate() : c'est déjà le tour de l'acteur, l'écran lui appartient.
-    render();
-    return new Promise((resolve) => {
-      openModal(`
-        <h2>Détournement</h2>
-        <p>${actor.name}, choisissez la carte à voler dans la main de ${target.name}.</p>
-        <div class="hand-row">${(() => { const counts = countByKind(target.hand); return target.hand.map((c) => cardHtml(c, { count: counts[c.kind] })).join(''); })()}</div>
-      `);
-      el('modal-box').querySelectorAll('.card').forEach((cardEl) => {
-        cardEl.addEventListener('click', () => {
-          const id = cardEl.getAttribute('data-card-id');
-          closeModal();
-          resolve(id);
-        });
-      });
-    });
-  }
-
   // Kill loot : quand une élimination est causée par Offensif ou Catastrophe, l'auteur du
   // coup fatal choisit une carte à récupérer dans la main de la victime (s'il en reste).
   async function handleKillLoot(inter) {
@@ -501,12 +477,7 @@
           await driveGen(Engine.playOffensiveCard(STATE, player.id, card.id, targetId));
         } else if (card.category === 'Sabotage') {
           const r = Engine.playSabotageCard(STATE, player.id, card.id, targetId);
-          if (r && r.needsStealChoice) {
-            const stealId = await handleDetournementSteal(r.actor, r.target);
-            if (stealId) Engine.resolveDetournementSteal(STATE, r.actor.id, r.target.id, stealId);
-          } else if (!r.ok) {
-            alert(r.reason);
-          }
+          if (!r.ok) alert(r.reason);
         }
         render();
       }
@@ -535,11 +506,7 @@
     }
     for (const sab of plan.sabotages) {
       if (STATE.phase === 'ended') break;
-      const r = Engine.playSabotageCard(STATE, player.id, sab.cardId, sab.targetId);
-      if (r && r.needsStealChoice) {
-        const stealId = await handleDetournementSteal(r.actor, r.target);
-        if (stealId) Engine.resolveDetournementSteal(STATE, r.actor.id, r.target.id, stealId);
-      }
+      Engine.playSabotageCard(STATE, player.id, sab.cardId, sab.targetId);
     }
     render();
 

@@ -84,6 +84,7 @@
         skipNextDraw: false,
         blockDefensifThisTurn: false,
         blockRessourceNextTurn: false,
+        blockOffensifNextTurn: false,
         autoShieldPending: false,
         autoShieldUsed: false,
         stats: {
@@ -339,6 +340,7 @@
     const target = getPlayer(state, targetId);
     const card = actor.hand.find((c) => c.id === cardId);
     if (!card || card.category !== 'Offensif') { yield { type: 'log', message: 'Carte invalide.' }; return; }
+    if (actor.blockOffensifNextTurn) { yield { type: 'log', message: 'Quarantaine : Offensif interdit ce tour.' }; return; }
     const check = canPlayCategory(state, 'Offensif');
     if (!check.ok) { yield { type: 'log', message: check.reason }; return; }
 
@@ -435,26 +437,14 @@
         target.skipNextDraw = true;
         log(state, `${actor.name} joue Coupure : ${target.name} ne pioche pas au prochain tour.`);
         break;
-      case 'detournement':
-        return { ok: true, needsStealChoice: true, card, actor, target };
+      case 'quarantaine':
+        target.blockOffensifNextTurn = true;
+        log(state, `${actor.name} joue Quarantaine : ${target.name} ne pourra jouer aucune carte Offensif à son prochain tour.`);
+        break;
       default:
         break;
     }
     return { ok: true };
-  }
-
-  // Détournement : l'acteur choisit lui-même une carte dans la main de la cible et la vole
-  // (elle rejoint sa propre main, elle n'est pas défaussée).
-  function resolveDetournementSteal(state, actorId, targetId, cardId) {
-    const actor = getPlayer(state, actorId);
-    const target = getPlayer(state, targetId);
-    const idx = target.hand.findIndex((c) => c.id === cardId);
-    if (idx === -1) return null;
-    const [card] = target.hand.splice(idx, 1);
-    actor.hand.push(card);
-    noteCollectionneurProgress(actor);
-    log(state, `${actor.name} vole ${card.label} à ${target.name} (Détournement).`);
-    return card;
   }
 
   // Éliminer un adversaire (Offensif ou Catastrophe) rapporte un bonus de points et permet
@@ -635,6 +625,7 @@
       yield { type: 'log', message: `${player.name} pioche 2 cartes.` };
     }
     player.blockRessourceNextTurn = false;
+    player.blockOffensifNextTurn = false;
     if (player.hand.length > MAX_HAND) {
       const excess = player.hand.length - MAX_HAND;
       const response = yield { type: 'discardExcess', playerId, hand: player.hand.map((c) => c.id), count: excess };
@@ -745,7 +736,7 @@
     MAX_END_COUNTER, MAX_HAND, TURN_BUDGET,
     initGame, activePlayers, getPlayer, secretLabel,
     canPlayCategory, playResourceCard, playOffensiveCard, playSabotageCard,
-    resolveDetournementSteal, playCatastropheCard, usableDefenseCards,
+    playCatastropheCard, usableDefenseCards,
     normalEndOfTurn, advanceToNextPlayer,
     evaluateSecret, computeFinalScores, endGame, log, drawOne, drawN,
   };

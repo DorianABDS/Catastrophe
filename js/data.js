@@ -84,7 +84,7 @@
     // Sabotage (18)
     push('Sabotage', 'pillage', 'Pillage', 6, {});
     push('Sabotage', 'coupure', 'Coupure', 6, {});
-    push('Sabotage', 'detournement', 'Détournement', 6, {});
+    push('Sabotage', 'quarantaine', 'Quarantaine', 6, {});
 
     // Offensif (30)
     push('Offensif', 'machette', 'Machette', 10, { damage: 2 });

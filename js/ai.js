@@ -16,7 +16,7 @@
     return null;
   }
 
-  // Choisit quelle carte voler dans la main de la cible pour Détournement
+  // Choisit quelle carte récupérer dans la main d'une victime (butin de kill)
   // (priorité aux cartes les plus utiles à récupérer / à retirer à l'adversaire)
   function aiChooseSteal(target) {
     const priority = ['Catastrophe', 'Ressource', 'Offensif', 'Sabotage', 'Defensif'];
@@ -99,9 +99,9 @@
     }
 
     // 2. Offensif : viser l'adversaire le plus faible (égalités départagées au hasard).
-    // Indisponible si une Catastrophe est jouée ce tour.
+    // Indisponible si une Catastrophe est jouée ce tour, ou sous Quarantaine.
     const offCards = hasCategory('Offensif');
-    if (!catastrophePlayed && offCards.length > 0 && plays < 4 && others.length > 0) {
+    if (!catastrophePlayed && !player.blockOffensifNextTurn && offCards.length > 0 && plays < 4 && others.length > 0) {
       const minPv = Math.min(...others.map((o) => o.pv));
       const weakestPool = others.filter((o) => o.pv === minPv);
       const weakest = pick(weakestPool);
