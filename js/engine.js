@@ -519,7 +519,6 @@
       const { defenseUsed } = yield* reactToDamage(state, victim.id, { kind: 'catastrophe', catastropheKind: kind });
       if (defenseUsed) victim.stats.defensifBlocks += 1;
       let finalDamage;
-      let bonus = 0;
       let fullyCancelled = false;
 
       if (defenseUsed && defenseUsed.kind === specificKind) {
@@ -528,17 +527,15 @@
         } else {
           finalDamage = 0;
           fullyCancelled = true;
-          if (isWeakness) bonus = 1;
         }
       } else {
         finalDamage = baseDamage;
       }
 
       if (finalDamage > 0) changePv(state, victim, -finalDamage);
-      if (bonus > 0) changePv(state, victim, bonus);
 
       const defenseNote = defenseUsed ? `se défend avec ${defenseUsed.label} — ` : '';
-      log(state, `${victim.name} ${defenseNote}subit ${finalDamage} dégât(s)${bonus ? ` et regagne ${bonus} PV` : ''}.`);
+      log(state, `${victim.name} ${defenseNote}subit ${finalDamage} dégât(s).`);
 
       if (!fullyCancelled) {
         applyArchetype(state, victim, archetype);
@@ -624,7 +621,10 @@
 
   // ---------- Fin de tour (générateur) ----------
 
-  function* normalEndOfTurn(state, playerId) {
+  // Séparée de la défausse d'excédent pour que l'UI humaine puisse laisser le joueur
+  // revenir jouer des cartes entre la pioche et la défausse forcée (ex: clic accidentel
+  // sur "Terminer le tour"), sans repiocher une 2e fois.
+  function* drawEndOfTurn(state, playerId) {
     const player = getPlayer(state, playerId);
     if (player.skipNextDraw) {
       player.skipNextDraw = false;
@@ -635,6 +635,10 @@
     }
     player.blockRessourceNextTurn = false;
     player.blockOffensifNextTurn = false;
+  }
+
+  function* discardExcessIfNeeded(state, playerId) {
+    const player = getPlayer(state, playerId);
     if (player.hand.length > MAX_HAND) {
       const excess = player.hand.length - MAX_HAND;
       const response = yield { type: 'discardExcess', playerId, hand: player.hand.map((c) => c.id), count: excess };
@@ -649,6 +653,11 @@
         if (c) log(state, `${player.name} défausse ${c.label} (excédent de main, auto).`);
       }
     }
+  }
+
+  function* normalEndOfTurn(state, playerId) {
+    yield* drawEndOfTurn(state, playerId);
+    yield* discardExcessIfNeeded(state, playerId);
   }
 
   function advanceToNextPlayer(state) {
@@ -746,7 +755,7 @@
     initGame, activePlayers, getPlayer, secretLabel,
     canPlayCategory, playResourceCard, playOffensiveCard, playSabotageCard,
     playCatastropheCard, usableDefenseCards,
-    normalEndOfTurn, advanceToNextPlayer,
+    normalEndOfTurn, drawEndOfTurn, discardExcessIfNeeded, advanceToNextPlayer,
     evaluateSecret, computeFinalScores, endGame, log, drawOne, drawN,
   };
 

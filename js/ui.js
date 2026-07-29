@@ -151,7 +151,7 @@
     const presage = el('presage-box');
     presage.innerHTML = `<strong>Le Présage</strong><br>
       Force : ${Engine.getPlayer ? '' : ''}${CatastropheData.CATASTROPHE_LABELS[STATE.presage.force]} (4 dégâts, jamais annulée à 100%)<br>
-      Faiblesse : ${CatastropheData.CATASTROPHE_LABELS[STATE.presage.weakness]} (2 dégâts, annulable + bonus)`;
+      Faiblesse : ${CatastropheData.CATASTROPHE_LABELS[STATE.presage.weakness]} (2 dégâts, annulable)`;
 
     const counter = el('counter-box');
     let dots = '';
@@ -300,6 +300,29 @@
     });
   }
 
+  // Avant de forcer la défausse d'excédent, on laisse le joueur humain revenir jouer des
+  // cartes (utile en cas de clic accidentel sur "Terminer le tour") plutôt que de le
+  // bloquer directement sur un choix de défausse.
+  function confirmDiscardOrBack(count, total) {
+    return new Promise((resolve) => {
+      openModal(`
+        <h2>Main trop grande</h2>
+        <p>Votre main dépasse ${Engine.MAX_HAND} cartes (${total} actuellement, ${count} à défausser). Vous pouvez revenir jouer des cartes pour réduire votre main autrement, ou défausser maintenant.</p>
+        <div class="option-list">
+          <div class="option-item" data-action="back">Revenir jouer des cartes</div>
+          <div class="option-item" data-action="discard">Défausser maintenant</div>
+        </div>
+      `);
+      el('modal-box').querySelectorAll('.option-item').forEach((item) => {
+        item.addEventListener('click', () => {
+          const action = item.getAttribute('data-action');
+          closeModal();
+          resolve(action);
+        });
+      });
+    });
+  }
+
   // Kill loot : quand une élimination est causée par Offensif ou Catastrophe, l'auteur du
   // coup fatal choisit une carte à récupérer dans la main de la victime (s'il en reste).
   async function handleKillLoot(inter) {
@@ -335,8 +358,23 @@
   function runHumanTurn(player) {
     return new Promise((resolve) => {
       let pendingTargetCard = null; // card awaiting target selection
+      let hasDrawnEndOfTurn = false; // évite de repiocher si le joueur revient jouer des cartes
 
-      const finishTurn = () => {
+      const finishTurn = async () => {
+        if (!hasDrawnEndOfTurn) {
+          await driveGen(Engine.drawEndOfTurn(STATE, player.id));
+          hasDrawnEndOfTurn = true;
+          draw();
+        }
+        const current = Engine.getPlayer(STATE, player.id);
+        if (current.hand.length > Engine.MAX_HAND) {
+          const action = await confirmDiscardOrBack(current.hand.length - Engine.MAX_HAND, current.hand.length);
+          if (action === 'back') {
+            draw();
+            return;
+          }
+          await driveGen(Engine.discardExcessIfNeeded(STATE, player.id));
+        }
         panel.querySelectorAll('button, .card, .target-chip').forEach((n) => n.replaceWith(n.cloneNode(true)));
         resolve();
       };
@@ -540,11 +578,13 @@
 
       if (player.isAI) {
         await runAITurn(player);
+        if (STATE.phase === 'ended') break;
+        await driveGen(Engine.normalEndOfTurn(STATE, player.id));
       } else {
+        // La pioche et la défausse d'excédent sont gérées à l'intérieur de runHumanTurn
+        // (pour permettre au joueur de revenir jouer des cartes avant une défausse forcée).
         await runHumanTurn(player);
       }
-      if (STATE.phase === 'ended') break;
-      await driveGen(Engine.normalEndOfTurn(STATE, player.id));
 
       if (STATE.phase === 'ended') break;
       Engine.advanceToNextPlayer(STATE);
