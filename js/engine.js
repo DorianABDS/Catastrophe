@@ -414,7 +414,10 @@
 
   // ---------- Cartes Sabotage ----------
 
-  function playSabotageCard(state, actorId, cardId, targetId) {
+  // Générateur : yield une notification bloquante (gate + modal côté UI) à la cible
+  // humaine, pour qu'elle sache immédiatement qu'elle vient d'être sabotée plutôt que
+  // de le découvrir plus tard, coincée, sans comprendre pourquoi.
+  function* playSabotageCard(state, actorId, cardId, targetId) {
     const actor = getPlayer(state, actorId);
     const target = getPlayer(state, targetId);
     const card = actor.hand.find((c) => c.id === cardId);
@@ -429,6 +432,7 @@
     target.stats.sabotagedEver = true;
     target.stats.sabotagedCount += 1;
 
+    let notifyMessage = null;
     switch (card.kind) {
       case 'pillage': {
         if (target.hand.length > 0) {
@@ -436,22 +440,29 @@
           target.hand = target.hand.filter((c) => c.id !== stolen.id);
           actor.hand.push(stolen);
           noteCollectionneurProgress(actor);
-          log(state, `${actor.name} joue Pillage sur ${target.name} et vole ${stolen.label}.`);
+          log(state, `${actor.name} joue ${card.label} sur ${target.name} et vole ${stolen.label}.`);
+          notifyMessage = `${actor.name} vous a volé ${stolen.label} avec ${card.label}.`;
         } else {
-          log(state, `${actor.name} joue Pillage sur ${target.name} mais rien à voler.`);
+          log(state, `${actor.name} joue ${card.label} sur ${target.name} mais rien à voler.`);
+          notifyMessage = `${actor.name} a joué ${card.label} sur vous, mais votre main était vide.`;
         }
         break;
       }
       case 'coupure':
         target.skipNextDraw = true;
-        log(state, `${actor.name} joue Coupure : ${target.name} ne pioche pas au prochain tour.`);
+        log(state, `${actor.name} joue ${card.label} : ${target.name} ne pioche pas au prochain tour.`);
+        notifyMessage = `${actor.name} vous a touché avec ${card.label} : vous ne piocherez pas à votre prochain tour.`;
         break;
       case 'quarantaine':
         target.blockOffensifNextTurn = true;
-        log(state, `${actor.name} joue Quarantaine : ${target.name} ne pourra jouer aucune carte Offensif à son prochain tour.`);
+        log(state, `${actor.name} joue ${card.label} : ${target.name} ne pourra jouer aucune carte Offensif à son prochain tour.`);
+        notifyMessage = `${actor.name} vous a mis en ${card.label} : vous ne pourrez jouer aucune carte Offensif à votre prochain tour.`;
         break;
       default:
         break;
+    }
+    if (notifyMessage && !target.isAI) {
+      yield { type: 'notifyTarget', targetId: target.id, title: card.label, message: notifyMessage };
     }
     return { ok: true };
   }

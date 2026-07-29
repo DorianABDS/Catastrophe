@@ -225,6 +225,8 @@
         response = await handleDiscardExcess(inter);
       } else if (inter.type === 'chooseKillLoot') {
         response = await handleKillLoot(inter);
+      } else if (inter.type === 'notifyTarget') {
+        response = await handleNotifyTarget(inter);
       } else if (inter.type === 'log') {
         render();
       }
@@ -319,6 +321,27 @@
           closeModal();
           resolve(action);
         });
+      });
+    });
+  }
+
+  // Notifie explicitement une victime humaine de Sabotage (Pillage/Éboulement/Quarantaine) :
+  // sans ça, l'effet ne se voit que dans l'historique et peut passer complètement inaperçu,
+  // surtout si l'effet ne se fait sentir qu'au prochain tour de la victime.
+  async function handleNotifyTarget(inter) {
+    const target = Engine.getPlayer(STATE, inter.targetId);
+    if (target.isAI) return null;
+    await gate(target, `Vous avez été touché par ${inter.title}.`);
+    render();
+    return new Promise((resolve) => {
+      openModal(`
+        <h2>⚠️ ${inter.title}</h2>
+        <p>${inter.message}</p>
+        <button id="btn-notify-ok" class="btn btn-primary">Compris</button>
+      `);
+      document.getElementById('btn-notify-ok').addEventListener('click', () => {
+        closeModal();
+        resolve(null);
       });
     });
   }
@@ -517,7 +540,7 @@
         } else if (card.category === 'Offensif') {
           await driveGen(Engine.playOffensiveCard(STATE, player.id, card.id, targetId));
         } else if (card.category === 'Sabotage') {
-          const r = Engine.playSabotageCard(STATE, player.id, card.id, targetId);
+          const r = await driveGen(Engine.playSabotageCard(STATE, player.id, card.id, targetId));
           if (!r.ok) alert(r.reason);
         }
         render();
@@ -547,7 +570,7 @@
     }
     for (const sab of plan.sabotages) {
       if (STATE.phase === 'ended') break;
-      Engine.playSabotageCard(STATE, player.id, sab.cardId, sab.targetId);
+      await driveGen(Engine.playSabotageCard(STATE, player.id, sab.cardId, sab.targetId));
     }
     render();
 
