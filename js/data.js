@@ -67,28 +67,28 @@
     };
 
     // Ressource (40)
-    push('Ressource', 'renfort', 'Renfort', 8, { amount: 1 });
+    push('Ressource', 'pansement', 'Pansement', 8, { amount: 1 });
     push('Ressource', 'provisions', 'Provisions', 8, { amount: 2 });
     push('Ressource', 'entraide', 'Entraide', 8, { amount: 1, choosable: true });
-    push('Ressource', 'ravitaillement', 'Ravitaillement', 4, { draw: 2 });
-    push('Ressource', 'provisions_urgence', "Provisions d'urgence", 2, { draw: 3 });
+    push('Ressource', 'renfort', 'Renfort', 4, { draw: 2 });
+    push('Ressource', 'ravitaillement', 'Ravitaillement', 2, { draw: 3 });
     push('Ressource', 'sursis', 'Sursis', 10, { amount: 4, requiresLowPv: 3 });
 
     // Défensif (24)
     push('Defensif', 'digue', 'Digue', 4, { counters: 'tsunami' });
-    push('Defensif', 'abri', 'Abri anti-sismique', 4, { counters: 'seisme' });
-    push('Defensif', 'plan_evacuation', "Plan d'évacuation", 4, { counters: 'volcan' });
-    push('Defensif', 'reserve_eau', "Réserve d'eau", 4, { counters: 'secheresse' });
+    push('Defensif', 'abri', 'Abri renforcé', 4, { counters: 'seisme' });
+    push('Defensif', 'plan_evacuation', "Voie d'évacuation", 4, { counters: 'volcan' });
+    push('Defensif', 'reserve_eau', 'Citerne', 4, { counters: 'secheresse' });
     push('Defensif', 'kit_secours', 'Kit de secours', 8, { generic: true });
 
     // Sabotage (18)
     push('Sabotage', 'pillage', 'Pillage', 6, {});
-    push('Sabotage', 'coupure', 'Coupure', 6, {});
+    push('Sabotage', 'coupure', 'Éboulement', 6, {});
     push('Sabotage', 'quarantaine', 'Quarantaine', 6, {});
 
     // Offensif (30)
     push('Offensif', 'machette', 'Machette', 10, { damage: 2 });
-    push('Offensif', 'pioche_secours', 'Pioche de secours', 7, { damage: 1, stealResource: true });
+    push('Offensif', 'pioche_secours', 'Charognard', 7, { damage: 1, stealResource: true });
     push('Offensif', 'contamination', 'Contamination', 6, { stealResistance: 1 });
     push('Offensif', 'amputation', 'Amputation', 4, { damage: 2, ignoresKit: true });
     push('Offensif', 'chaos', 'Chaos', 3, { damageAll: 2 });

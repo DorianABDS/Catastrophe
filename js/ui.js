@@ -5,17 +5,17 @@
   const SECRETS = window.CatastropheData.SECRETS;
 
   const CARD_DESC = {
-    renfort: '+1 PV',
+    pansement: '+1 PV',
     provisions: '+2 PV',
     entraide: '+1 PV à un autre joueur (jamais à soi-même)',
-    ravitaillement: 'Piocher 2 cartes',
-    provisions_urgence: 'Piocher 3 cartes',
+    renfort: 'Piocher 2 cartes',
+    ravitaillement: 'Piocher 3 cartes',
     sursis: 'Jouable seulement à 3 PV ou moins : +4 PV',
     digue: 'Annule les dégâts d\'un Tsunami',
     abri: 'Annule les dégâts d\'un Séisme',
     plan_evacuation: 'Annule les dégâts d\'un Volcan',
     reserve_eau: 'Annule les dégâts d\'une Sécheresse',
-    kit_secours: 'Annule les dégâts de Machette, Pioche de secours ou Contamination',
+    kit_secours: 'Annule les dégâts de Machette, Charognard ou Contamination',
     pillage: 'Vole 1 carte au hasard à un adversaire',
     coupure: 'L\'adversaire ne pioche pas au prochain tour',
     quarantaine: "La cible ne peut jouer aucune carte Offensif à son prochain tour",
@@ -408,7 +408,7 @@
         if (card.kind === 'sursis' && player.pv > card.requiresLowPv) {
           return { ok: false, reason: `Jouable uniquement à ${card.requiresLowPv} PV ou moins.` };
         }
-        if ((card.kind === 'renfort' || card.kind === 'provisions') && player.pv >= player.maxPv) {
+        if ((card.kind === 'pansement' || card.kind === 'provisions') && player.pv >= player.maxPv) {
           return { ok: false, reason: 'Inutile : vos PV sont déjà au maximum.' };
         }
         return Engine.canPlayCategory(STATE, card.category);

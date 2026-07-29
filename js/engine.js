@@ -260,9 +260,9 @@
       return { ok: false, reason: `Sursis n'est jouable qu'à ${card.requiresLowPv} PV ou moins.` };
     }
 
-    // Renfort/Provisions soignent le joueur lui-même : inutile (et donc interdit, pour
+    // Pansement/Provisions soignent le joueur lui-même : inutile (et donc interdit, pour
     // ne jamais gâcher la carte) si ses PV sont déjà au maximum.
-    if ((card.kind === 'renfort' || card.kind === 'provisions') && player.pv >= player.maxPv) {
+    if ((card.kind === 'pansement' || card.kind === 'provisions') && player.pv >= player.maxPv) {
       return { ok: false, reason: `${card.label} est inutile : vos PV sont déjà au maximum.` };
     }
 
@@ -270,9 +270,9 @@
     registerPlay(state, 'Ressource');
 
     switch (card.kind) {
-      case 'renfort':
+      case 'pansement':
         changePv(state, player, 1);
-        log(state, `${player.name} joue Renfort (+1 PV).`);
+        log(state, `${player.name} joue Pansement (+1 PV).`);
         break;
       case 'provisions':
         changePv(state, player, 2);
@@ -286,13 +286,13 @@
         log(state, `${player.name} joue Entraide sur ${target.name} (+1 PV).`);
         break;
       }
-      case 'ravitaillement':
+      case 'renfort':
         drawN(state, player, 2);
-        log(state, `${player.name} joue Ravitaillement (pioche 2 cartes).`);
+        log(state, `${player.name} joue Renfort (pioche 2 cartes).`);
         break;
-      case 'provisions_urgence':
+      case 'ravitaillement':
         drawN(state, player, 3);
-        log(state, `${player.name} joue Provisions d'urgence (pioche 3 cartes).`);
+        log(state, `${player.name} joue Ravitaillement (pioche 3 cartes).`);
         break;
       case 'sursis':
         changePv(state, player, card.amount);

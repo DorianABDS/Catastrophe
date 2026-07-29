@@ -76,7 +76,7 @@
       const selfHealCards = resCards.filter((c) => {
         if (c.kind === 'entraide') return false;
         if (c.kind === 'sursis') return player.pv <= c.requiresLowPv;
-        if (c.kind === 'renfort' || c.kind === 'provisions') return player.pv < player.maxPv;
+        if (c.kind === 'pansement' || c.kind === 'provisions') return player.pv < player.maxPv;
         return true;
       });
       const entraideCard = resCards.find((c) => c.kind === 'entraide');
@@ -93,8 +93,8 @@
         plays += 1;
       } else if (selfHealCards.length > 0) {
         const chosen = player.pv <= 5
-          ? (selfHealCards.find((c) => c.kind === 'sursis') || selfHealCards.find((c) => c.kind === 'provisions') || selfHealCards.find((c) => c.kind === 'renfort') || selfHealCards[0])
-          : (selfHealCards.find((c) => c.kind === 'sursis') || selfHealCards.find((c) => c.kind === 'provisions_urgence') || selfHealCards.find((c) => c.kind === 'ravitaillement') || selfHealCards[0]);
+          ? (selfHealCards.find((c) => c.kind === 'sursis') || selfHealCards.find((c) => c.kind === 'provisions') || selfHealCards.find((c) => c.kind === 'pansement') || selfHealCards[0])
+          : (selfHealCards.find((c) => c.kind === 'sursis') || selfHealCards.find((c) => c.kind === 'ravitaillement') || selfHealCards.find((c) => c.kind === 'renfort') || selfHealCards[0]);
         plan.resource = { cardId: chosen.id };
         plays += 1;
       } else if (entraideCard && weakestOther) {
