@@ -381,14 +381,8 @@
   function runHumanTurn(player) {
     return new Promise((resolve) => {
       let pendingTargetCard = null; // card awaiting target selection
-      let hasDrawnEndOfTurn = false; // évite de repiocher si le joueur revient jouer des cartes
 
       const finishTurn = async () => {
-        if (!hasDrawnEndOfTurn) {
-          await driveGen(Engine.drawEndOfTurn(STATE, player.id));
-          hasDrawnEndOfTurn = true;
-          draw();
-        }
         const current = Engine.getPlayer(STATE, player.id);
         if (current.hand.length > Engine.MAX_HAND) {
           const action = await confirmDiscardOrBack(current.hand.length - Engine.MAX_HAND, current.hand.length);
@@ -396,8 +390,10 @@
             draw();
             return;
           }
-          await driveGen(Engine.discardExcessIfNeeded(STATE, player.id));
         }
+        // Lève les blocages de ce tour (Sécheresse/Quarantaine) et rattrape un éventuel
+        // excédent de main causé par des gains en cours de tour.
+        await driveGen(Engine.endOfTurn(STATE, player.id));
         panel.querySelectorAll('button, .card, .target-chip').forEach((n) => n.replaceWith(n.cloneNode(true)));
         resolve();
       };
@@ -599,12 +595,18 @@
       await gate(player, 'C\'est à votre tour de jouer.');
       render();
 
+      // Pioche en DÉBUT de tour : le joueur voit sa main complète avant de décider quoi
+      // jouer, plutôt que de piocher des cartes inutilisables juste avant de passer la main.
+      await driveGen(Engine.startOfTurn(STATE, player.id));
+      if (STATE.phase === 'ended') break;
+      render();
+
       if (player.isAI) {
         await runAITurn(player);
         if (STATE.phase === 'ended') break;
-        await driveGen(Engine.normalEndOfTurn(STATE, player.id));
+        await driveGen(Engine.endOfTurn(STATE, player.id));
       } else {
-        // La pioche et la défausse d'excédent sont gérées à l'intérieur de runHumanTurn
+        // La défausse d'excédent de fin de tour est gérée à l'intérieur de runHumanTurn
         // (pour permettre au joueur de revenir jouer des cartes avant une défausse forcée).
         await runHumanTurn(player);
       }

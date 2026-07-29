@@ -630,12 +630,13 @@
     }
   }
 
-  // ---------- Fin de tour (générateur) ----------
+  // ---------- Début / fin de tour (générateurs) ----------
 
-  // Séparée de la défausse d'excédent pour que l'UI humaine puisse laisser le joueur
-  // revenir jouer des cartes entre la pioche et la défausse forcée (ex: clic accidentel
-  // sur "Terminer le tour"), sans repiocher une 2e fois.
-  function* drawEndOfTurn(state, playerId) {
+  // La pioche a lieu en DÉBUT de tour (et non plus en fin) : le joueur voit sa main
+  // complète avant de décider quoi jouer, au lieu de piocher des cartes qu'il ne pourra
+  // utiliser qu'au tour suivant. Si l'excédent dépasse 5 cartes dès la pioche, la
+  // défausse forcée intervient ici aussi, avant que le joueur ne commence à jouer.
+  function* startOfTurn(state, playerId) {
     const player = getPlayer(state, playerId);
     if (player.skipNextDraw) {
       player.skipNextDraw = false;
@@ -644,8 +645,7 @@
       drawN(state, player, 2);
       yield { type: 'log', message: `${player.name} pioche 2 cartes.` };
     }
-    player.blockRessourceNextTurn = false;
-    player.blockOffensifNextTurn = false;
+    yield* discardExcessIfNeeded(state, playerId);
   }
 
   function* discardExcessIfNeeded(state, playerId) {
@@ -666,8 +666,15 @@
     }
   }
 
-  function* normalEndOfTurn(state, playerId) {
-    yield* drawEndOfTurn(state, playerId);
+  // Fin de tour : lève les blocages posés pour CE tour (Sécheresse/Quarantaine ne
+  // doivent s'appliquer qu'une fois — les lever plus tôt, en début de tour, annulerait
+  // le blocage avant même que le joueur n'ait pu en être empêché), et rattrape un
+  // éventuel excédent de main causé par des gains en cours de tour (Renfort,
+  // Ravitaillement, Charognard, Pillage...).
+  function* endOfTurn(state, playerId) {
+    const player = getPlayer(state, playerId);
+    player.blockRessourceNextTurn = false;
+    player.blockOffensifNextTurn = false;
     yield* discardExcessIfNeeded(state, playerId);
   }
 
@@ -766,7 +773,7 @@
     initGame, activePlayers, getPlayer, secretLabel,
     canPlayCategory, playResourceCard, playOffensiveCard, playSabotageCard,
     playCatastropheCard, usableDefenseCards,
-    normalEndOfTurn, drawEndOfTurn, discardExcessIfNeeded, advanceToNextPlayer,
+    startOfTurn, endOfTurn, discardExcessIfNeeded, advanceToNextPlayer,
     evaluateSecret, computeFinalScores, endGame, log, drawOne, drawN,
   };
 
