@@ -634,8 +634,9 @@
 
   // La pioche a lieu en DÉBUT de tour (et non plus en fin) : le joueur voit sa main
   // complète avant de décider quoi jouer, au lieu de piocher des cartes qu'il ne pourra
-  // utiliser qu'au tour suivant. Si l'excédent dépasse 5 cartes dès la pioche, la
-  // défausse forcée intervient ici aussi, avant que le joueur ne commence à jouer.
+  // utiliser qu'au tour suivant. La défausse d'excédent, elle, reste vérifiée uniquement
+  // en FIN de tour (dans endOfTurn) : le joueur doit pouvoir se servir de sa main pendant
+  // son tour avant d'être éventuellement forcé de défausser, pas avant d'avoir joué.
   function* startOfTurn(state, playerId) {
     const player = getPlayer(state, playerId);
     if (player.skipNextDraw) {
@@ -645,7 +646,6 @@
       drawN(state, player, 2);
       yield { type: 'log', message: `${player.name} pioche 2 cartes.` };
     }
-    yield* discardExcessIfNeeded(state, playerId);
   }
 
   function* discardExcessIfNeeded(state, playerId) {
